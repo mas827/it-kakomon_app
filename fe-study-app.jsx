@@ -1007,6 +1007,11 @@ function StatsScreen({ states, onBack, onReset }) {
             )}
           </div>
 
+          {/* バックアップ / 復元 */}
+          <div style={{ marginTop: 8, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
+            <BackupRestore />
+          </div>
+
           {/* データリセット */}
           <div style={{ marginTop: 8, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
             {!confirmReset ? (
@@ -1041,6 +1046,98 @@ function SummaryCard({ label, value, color }) {
     <div style={{ flex: 1, background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px 10px", textAlign: "center" }}>
       <div style={{ fontFamily: mono, fontSize: 22, fontWeight: 800, color }}>{value}</div>
       <div style={{ fontSize: 11, color: C.faint, marginTop: 4 }}>{label}</div>
+    </div>
+  );
+}
+
+// ===== 学習履歴のバックアップ / 復元 =====
+// 過去問（fe-exam-srs-v1）と英略語（it-abbr-srs-v1）の両方を1つのファイルにまとめて
+// 書き出し・読み込みできる。アプリを消しても、このファイルから履歴を復元できる。
+const BACKUP_KEYS = [STORAGE_KEY, ABBR_STORAGE_KEY];
+const BACKUP_MAGIC = "fe-exam-trainer-backup";
+
+function buildBackup() {
+  const stores = {};
+  BACKUP_KEYS.forEach((k) => {
+    const raw = localStorage.getItem(k);
+    if (raw) {
+      try { stores[k] = JSON.parse(raw); } catch (e) { /* skip broken */ }
+    }
+  });
+  return { app: BACKUP_MAGIC, version: 1, exportedAt: new Date().toISOString(), stores };
+}
+
+function countCards(backup) {
+  return BACKUP_KEYS.reduce((sum, k) => sum + Object.keys(backup.stores[k] || {}).length, 0);
+}
+
+function BackupRestore() {
+  const fileRef = React.useRef(null);
+  const [msg, setMsg] = useState(null); // {type, text}
+
+  const doExport = () => {
+    try {
+      const backup = buildBackup();
+      const n = countCards(backup);
+      const blob = new Blob([JSON.stringify(backup)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `fe-exam-backup-${todayStr()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setMsg({ type: "ok", text: `${n}件の学習履歴を書き出しました。ダウンロードを確認してください。` });
+    } catch (e) {
+      setMsg({ type: "err", text: "書き出しに失敗しました: " + e.message });
+    }
+  };
+
+  const onFile = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ""; // 同じファイルを続けて選べるように
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data || typeof data !== "object" || !data.stores || data.app !== BACKUP_MAGIC) {
+        throw new Error("このアプリのバックアップファイルではありません");
+      }
+      const n = countCards(data);
+      if (!window.confirm(`バックアップから${n}件の学習履歴を復元します。\n現在の履歴は上書きされます。よろしいですか？`)) return;
+      BACKUP_KEYS.forEach((k) => {
+        if (data.stores[k]) localStorage.setItem(k, JSON.stringify(data.stores[k]));
+      });
+      setMsg({ type: "ok", text: "復元しました。画面を更新します…" });
+      setTimeout(() => window.location.reload(), 700);
+    } catch (err) {
+      setMsg({ type: "err", text: "復元に失敗しました: " + err.message });
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: C.faint, marginBottom: 10, fontFamily: mono }}>学習履歴のバックアップ</div>
+      <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.7, marginBottom: 12 }}>
+        過去問と英略語の履歴をまとめて1つのファイルに保存します。アプリを消したり端末を変えても、このファイルから復元できます。
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={doExport}
+          style={{ flex: 1, padding: 12, borderRadius: 10, background: C.panel, border: `1px solid ${C.border}`, color: C.text, fontSize: 13, fontWeight: 700, fontFamily: sans, cursor: "pointer" }}>
+          ⬇ ファイルに保存
+        </button>
+        <button onClick={() => fileRef.current && fileRef.current.click()}
+          style={{ flex: 1, padding: 12, borderRadius: 10, background: C.panel, border: `1px solid ${C.border}`, color: C.text, fontSize: 13, fontWeight: 700, fontFamily: sans, cursor: "pointer" }}>
+          ⬆ ファイルから復元
+        </button>
+        <input ref={fileRef} type="file" accept="application/json,.json" onChange={onFile} style={{ display: "none" }} />
+      </div>
+      {msg && (
+        <div style={{ marginTop: 10, fontSize: 12, color: msg.type === "ok" ? C.accent : C.red, lineHeight: 1.6 }}>
+          {msg.text}
+        </div>
+      )}
     </div>
   );
 }
@@ -1572,6 +1669,10 @@ function AbbrStats({ states, onBack, onReset }) {
           })}
         </div>
       </Section>
+
+      <div style={{ marginTop: 4, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
+        <BackupRestore />
+      </div>
 
       <div style={{ flex: 1 }} />
 
