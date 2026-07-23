@@ -1157,13 +1157,80 @@ const abbrCatColor = (cat) => {
 
 const FREQ_LABEL = { 3: "最頻出", 2: "頻出", 1: "標準" };
 
+// ===== 4択のダミー選択肢（誤答）生成 =====
+// 正解と「紛らわしい綴り」「近い分野」の英略語を誤答に採用する。
+function letterJaccard(a, b) {
+  const sa = new Set(a.toUpperCase()), sb = new Set(b.toUpperCase());
+  let inter = 0;
+  sa.forEach((c) => { if (sb.has(c)) inter += 1; });
+  const uni = new Set([...sa, ...sb]).size;
+  return uni ? inter / uni : 0;
+}
+function commonPrefixLen(a, b) {
+  a = a.toUpperCase(); b = b.toUpperCase();
+  let n = 0;
+  const m = Math.min(a.length, b.length);
+  while (n < m && a[n] === b[n]) n += 1;
+  return n;
+}
+function editDistance(a, b) {
+  a = a.toUpperCase(); b = b.toUpperCase();
+  const dp = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cur = dp[j];
+      dp[j] = Math.min(dp[j] + 1, dp[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+  }
+  return dp[b.length];
+}
+function abbrSimilarity(t, c) {
+  const ta = t.abbr, ca = c.abbr;
+  let s = 0;
+  if (t.category === c.category) s += 3;                       // 近い分野
+  s += letterJaccard(ta, ca) * 4;                              // 文字の重なり（アナグラム系）
+  s += commonPrefixLen(ta, ca) * 2;                            // 先頭一致（MTBF/MTTR）
+  if (ta.length === ca.length) s += 1.5;                       // 同じ文字数
+  const maxLen = Math.max(ta.length, ca.length) || 1;
+  s += (1 - editDistance(ta, ca) / maxLen) * 2;                // 全体の近さ
+  return s;
+}
+// 最も紛らわしい語（最上位）は毎回必ず入れ、残りは次点からランダムに選ぶ。
+// これで「LRU⇔LFU」「FIFO⇔LIFO」「MTBF⇔MTTR」等の目玉の誤答が確実に出つつ、他は程よく変化する。
+function abbrDistractors(target, all, k = 3) {
+  const scored = all
+    .filter((c) => c.id !== target.id)
+    .map((c) => ({ c, s: abbrSimilarity(target, c) }))
+    .sort((x, y) => y.s - x.s)
+    .map((x) => x.c);
+  const picked = [];
+  if (scored.length) picked.push(scored[0]);                    // 最上位は固定
+  const nextPool = scored.slice(1, 6);                          // 次点5語から
+  for (const c of shuffle(nextPool)) { if (picked.length >= k) break; picked.push(c); }
+  // 念のため k 語に満たなければ残り全体から補完
+  if (picked.length < k) {
+    const used = new Set([target.id, ...picked.map((c) => c.id)]);
+    for (const c of scored) { if (picked.length >= k) break; if (!used.has(c.id)) { picked.push(c); used.add(c.id); } }
+  }
+  return picked.slice(0, k);
+}
+// カード1枚分の4択（選択肢の略語オブジェクト配列と正解index）を作る
+function buildAbbrChoices(card) {
+  const distractors = abbrDistractors(card, ABBRS, 3);
+  const choices = shuffle([card, ...distractors]);
+  return { choices, answer: choices.findIndex((c) => c.id === card.id) };
+}
+
 function AbbrApp({ onBusyChange }) {
   const [screen, setScreen] = useState("home");
   const [states, updateCard, resetAll] = useCardStates(ABBR_STORAGE_KEY);
   const [sessionCards, setSessionCards] = useState([]);
   const [sessionLog, setSessionLog] = useState([]);
 
-  useEffect(() => { onBusyChange(screen === "card"); }, [screen, onBusyChange]);
+  useEffect(() => { onBusyChange(screen === "quiz"); }, [screen, onBusyChange]);
 
   const dueAbbrs = useMemo(() => {
     const today = todayStr();
@@ -1178,7 +1245,7 @@ function AbbrApp({ onBusyChange }) {
   const startSession = (cards) => {
     setSessionCards(cards);
     setSessionLog([]);
-    setScreen("card");
+    setScreen("quiz");
   };
 
   const finishSession = (log) => {
@@ -1201,8 +1268,8 @@ function AbbrApp({ onBusyChange }) {
         <AbbrSetup states={states} newAbbrs={newAbbrs}
           onStart={startSession} onBack={() => setScreen("home")} />
       )}
-      {screen === "card" && (
-        <AbbrCardScreen cards={sessionCards} onFinish={finishSession}
+      {screen === "quiz" && (
+        <AbbrQuizScreen cards={sessionCards} onFinish={finishSession}
           onQuit={() => setScreen("home")} updateCard={updateCard} />
       )}
       {screen === "result" && (
@@ -1377,28 +1444,40 @@ function AbbrSetup({ states, newAbbrs, onStart, onBack }) {
   );
 }
 
-// カード学習画面：略語 →「意味は？」で裏面（正式名称・意味・豆知識）→ 3段階評価
-function AbbrCardScreen({ cards, onFinish, onQuit, updateCard }) {
+// 4択問題画面：意味を見せ、4つの英略語から選ぶ → 正誤判定＋展開 → 理解度3段階評価
+function AbbrQuizScreen({ cards, onFinish, onQuit, updateCard }) {
   const [idx, setIdx] = useState(0);
-  const [revealed, setRevealed] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [answered, setAnswered] = useState(false);
   const [log, setLog] = useState([]);
 
   const card = cards[idx];
-  const isLast = idx === cards.length - 1;
+  // 選択肢は問題ごとに1度だけ生成（回答中に並びが変わらないように idx で固定）
+  const quiz = useMemo(() => (card ? buildAbbrChoices(card) : null), [card]);
 
-  if (!card) {
+  if (!card || !quiz) {
     return <div style={{ padding: 40, textAlign: "center", color: C.dim }}>語がありません</div>;
   }
 
+  const isLast = idx === cards.length - 1;
+  const isCorrect = selected === quiz.answer;
+
+  const handleSelect = (i) => {
+    if (answered) return;
+    setSelected(i);
+    setAnswered(true);
+  };
+
   const handleRate = (quality) => {
-    updateCard(card.id, quality);
-    const newLog = [...log, { card, quality }];
+    updateCard(card.id, quality, isCorrect);
+    const newLog = [...log, { card, correct: isCorrect, quality }];
     setLog(newLog);
     if (isLast) {
       onFinish(newLog);
     } else {
       setIdx(idx + 1);
-      setRevealed(false);
+      setSelected(null);
+      setAnswered(false);
     }
   };
 
@@ -1408,55 +1487,69 @@ function AbbrCardScreen({ cards, onFinish, onQuit, updateCard }) {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button onClick={onQuit} style={{ background: "transparent", border: "none", color: C.dim, fontSize: 20, cursor: "pointer", padding: 0 }}>✕</button>
           <div style={{ flex: 1, height: 6, background: C.panel, borderRadius: 3, overflow: "hidden" }}>
-            <div style={{ width: `${((idx + (revealed ? 1 : 0)) / cards.length) * 100}%`, height: "100%", background: C.accent, borderRadius: 3, transition: "width .3s" }} />
+            <div style={{ width: `${((idx + (answered ? 1 : 0)) / cards.length) * 100}%`, height: "100%", background: C.accent, borderRadius: 3, transition: "width .3s" }} />
           </div>
           <span style={{ fontFamily: mono, fontSize: 13, color: C.dim }}>{idx + 1}/{cards.length}</span>
         </div>
       </div>
 
-      <div style={{ flex: 1, padding: "20px", overflowY: "auto", display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 20 }}>
+      <div style={{ flex: 1, padding: "20px", overflowY: "auto" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
           <span style={{ display: "inline-block", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, fontFamily: mono, background: `${abbrCatColor(card.category)}22`, color: abbrCatColor(card.category) }}>
             {card.category}
           </span>
           <span style={{ fontSize: 11, color: C.faint, fontFamily: mono }}>{FREQ_LABEL[card.freq]}</span>
         </div>
 
-        {/* 表面：略語 */}
-        <div style={{ textAlign: "center", padding: "16px 0 8px" }}>
-          <div style={{ fontFamily: mono, fontSize: 44, fontWeight: 800, color: C.text, letterSpacing: 1 }}>{card.abbr}</div>
-          <div style={{ fontSize: 13, color: C.faint, marginTop: 6 }}>{card.kana}</div>
+        {/* 問題：意味を表示し、英略語を選ばせる */}
+        <div style={{ margin: "4px 0 24px" }}>
+          <div style={{ fontSize: 12, color: C.faint, marginBottom: 8 }}>この意味を表す英略語は？</div>
+          <div style={{ fontSize: 22, lineHeight: 1.5, fontWeight: 700, color: C.text }}>{card.meaning}</div>
         </div>
 
-        {!revealed ? (
-          <>
-            <div style={{ flex: 1 }} />
-            <button onClick={() => setRevealed(true)}
-              style={{ width: "100%", padding: 18, borderRadius: 14, border: `1px solid ${C.border}`, background: C.panel,
-                color: C.text, fontSize: 16, fontWeight: 700, fontFamily: sans, cursor: "pointer" }}>
-              意味は？
-            </button>
-          </>
-        ) : (
-          <>
-            <div style={{ marginTop: 12, padding: 18, borderRadius: 12, background: C.panel, border: `1px solid ${C.border}`, animation: "fadeIn .3s" }}>
-              <div style={{ fontSize: 15, color: C.accent, fontWeight: 700, lineHeight: 1.6 }}>{card.full}</div>
-              <div style={{ fontSize: 17, color: C.text, fontWeight: 700, marginTop: 10, lineHeight: 1.6 }}>{card.meaning}</div>
-              {card.tips && (
-                <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}`, fontSize: 13, color: C.dim, lineHeight: 1.8 }}>
-                  <span style={{ color: C.amber, fontWeight: 700 }}>豆 </span>{card.tips}
-                </div>
-              )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {quiz.choices.map((choice, i) => {
+            let bg = C.panel, border = C.border, mark = null, txtColor = C.text;
+            if (answered) {
+              if (i === quiz.answer) { bg = `${C.accent}1a`; border = C.accent; mark = "✓"; txtColor = C.accent; }
+              else if (i === selected) { bg = `${C.red}1a`; border = C.red; mark = "✗"; txtColor = C.red; }
+              else { txtColor = C.dim; }
+            }
+            return (
+              <button key={choice.id} onClick={() => handleSelect(i)} disabled={answered}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px", borderRadius: 12, textAlign: "left", fontFamily: mono, fontSize: 18, fontWeight: 700, letterSpacing: 0.5,
+                  background: bg, border: `1.5px solid ${border}`, color: txtColor, cursor: answered ? "default" : "pointer", transition: "all .15s" }}>
+                <span style={{ flex: 1 }}>{choice.abbr}</span>
+                {mark && <span style={{ fontSize: 16 }}>{mark}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {answered && (
+          <div style={{ marginTop: 20, padding: 18, borderRadius: 12, background: C.panel, border: `1px solid ${C.border}`, animation: "fadeIn .3s" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: isCorrect ? C.accent : C.red }}>
+                {isCorrect ? "正解" : "不正解"}
+              </span>
+              <span style={{ fontFamily: mono, fontSize: 18, fontWeight: 800, color: C.text }}>{card.abbr}</span>
+              <span style={{ fontSize: 12, color: C.faint }}>{card.kana}</span>
             </div>
-            <div style={{ flex: 1 }} />
-          </>
+            <div style={{ fontSize: 14, color: C.accent, fontWeight: 700, lineHeight: 1.6 }}>{card.full}</div>
+            <div style={{ fontSize: 15, color: C.text, fontWeight: 700, marginTop: 8, lineHeight: 1.6 }}>{card.meaning}</div>
+            {card.tips && (
+              <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${C.border}`, fontSize: 13, color: C.dim, lineHeight: 1.8 }}>
+                <span style={{ color: C.amber, fontWeight: 700 }}>豆 </span>{card.tips}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
-      {revealed && (
+      {answered && (
         <div style={{ padding: "16px 20px", borderTop: `1px solid ${C.border}`, background: C.panel, animation: "slideUp .3s" }}>
           <div style={{ fontSize: 12, color: C.faint, textAlign: "center", marginBottom: 10 }}>
-            どのくらい覚えていましたか？
+            理解度を選ぶと次回の出題間隔が決まります
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <RateBtn color={C.red} emoji="😓" label="わからない" sub="翌日" onClick={() => handleRate(0)} />
@@ -1470,15 +1563,16 @@ function AbbrCardScreen({ cards, onFinish, onQuit, updateCard }) {
 }
 
 function AbbrResult({ log, onHome }) {
-  const known = log.filter((e) => e.quality === 2).length;
+  const correct = log.filter((e) => e.correct).length;
   const total = log.length;
-  const rate = total ? Math.round((known / total) * 100) : 0;
-  const weak = log.filter((e) => e.quality < 2);
+  const rate = total ? Math.round((correct / total) * 100) : 0;
+  // 間違えた語＋「あいまい/わからない」と自己評価した語を復習候補にする
+  const weak = log.filter((e) => !e.correct || e.quality < 2);
 
   let message, msgColor;
   if (rate >= 80) { message = "素晴らしい！この調子です"; msgColor = C.accent; }
   else if (rate >= 50) { message = "良いペース。復習で確実に"; msgColor = C.blue; }
-  else { message = "あいまいな語を重点復習しよう"; msgColor = C.amber; }
+  else { message = "間違えた語を重点復習しよう"; msgColor = C.amber; }
 
   return (
     <div style={{ padding: "24px 20px", display: "flex", flexDirection: "column", gap: 20, flex: 1 }}>
@@ -1486,7 +1580,7 @@ function AbbrResult({ log, onHome }) {
 
       <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 14, padding: 22, textAlign: "center" }}>
         <div style={{ fontFamily: mono, fontSize: 44, fontWeight: 800, color: msgColor }}>{rate}%</div>
-        <div style={{ fontSize: 13, color: C.dim, marginTop: 4 }}>{known} / {total} 語を「覚えた」</div>
+        <div style={{ fontSize: 13, color: C.dim, marginTop: 4 }}>{correct} / {total} 語 正解</div>
         <div style={{ fontSize: 14, color: msgColor, marginTop: 12, fontWeight: 700 }}>{message}</div>
       </div>
 
