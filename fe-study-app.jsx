@@ -334,6 +334,7 @@ function QuizApp({ onBusyChange }) {
   const [states, updateCard, resetAll] = useCardStates(STORAGE_KEY);
   const [sessionQs, setSessionQs] = useState([]);
   const [sessionLog, setSessionLog] = useState([]);
+  const [detail, setDetail] = useState(null);  // { q, selected, revealStart, from }
 
   useEffect(() => { onBusyChange(screen === "session"); }, [screen, onBusyChange]);
 
@@ -361,6 +362,11 @@ function QuizApp({ onBusyChange }) {
     setScreen("result");
   };
 
+  const openDetail = (d) => {
+    setDetail(d);
+    setScreen("detail");
+  };
+
   return (
     <>
       {screen === "home" && (
@@ -369,6 +375,7 @@ function QuizApp({ onBusyChange }) {
           totalCount={QUESTIONS.length}
           onReview={() => startSession(shuffle(dueQuestions).slice(0, 20))}
           onSetup={() => setScreen("setup")}
+          onList={() => setScreen("list")}
           onStats={() => setScreen("stats")}
         />
       )}
@@ -384,10 +391,31 @@ function QuizApp({ onBusyChange }) {
           onQuit={() => setScreen("home")} updateCard={updateCard}
         />
       )}
-      {screen === "result" && (
-        <ResultScreen
-          log={sessionLog} states={states}
-          onHome={() => setScreen("home")}
+      {/* 詳細を開いている間も呼び出し元を非表示で残し、検索条件やスクロール位置を保つ
+          （App がタブ切り替えでやっているのと同じ手法） */}
+      {(screen === "result" || (screen === "detail" && detail?.from === "result")) && (
+        <div style={{ display: screen === "result" ? "flex" : "none", flexDirection: "column", flex: 1 }}>
+          <ResultScreen
+            log={sessionLog} states={states}
+            onHome={() => setScreen("home")}
+            onOpen={(e) => openDetail({ q: e.q, selected: e.selected, revealStart: true, from: "result" })}
+          />
+        </div>
+      )}
+      {(screen === "list" || (screen === "detail" && detail?.from === "list")) && (
+        <div style={{ display: screen === "list" ? "flex" : "none", flexDirection: "column", flex: 1 }}>
+          <QuestionList
+            states={states}
+            onOpen={(q) => openDetail({ q, selected: null, revealStart: false, from: "list" })}
+            onBack={() => setScreen("home")}
+          />
+        </div>
+      )}
+      {screen === "detail" && detail && (
+        // 問題が変わったら「解答を見る」の開閉状態を持ち越さないよう key を付ける
+        <QuestionDetail
+          key={detail.q.id} q={detail.q} selected={detail.selected}
+          revealStart={detail.revealStart} onBack={() => setScreen(detail.from)}
         />
       )}
       {screen === "stats" && (
@@ -407,7 +435,7 @@ function shuffle(arr) {
 }
 
 // ===== ホーム画面 =====
-function HomeScreen({ states, dueCount, newCount, totalCount, onReview, onSetup, onStats }) {
+function HomeScreen({ states, dueCount, newCount, totalCount, onReview, onSetup, onList, onStats }) {
   const learned = Object.keys(states).length;
   const mastered = Object.values(states).filter((c) => c.interval >= 7).length;
   const progress = totalCount ? Math.round((learned / totalCount) * 100) : 0;
@@ -460,9 +488,14 @@ function HomeScreen({ states, dueCount, newCount, totalCount, onReview, onSetup,
 
       <div style={{ flex: 1 }} />
 
-      <button onClick={onStats} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px", color: C.dim, fontSize: 14, fontFamily: sans, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-        <span style={{ fontSize: 16 }}>▤</span> 学習統計を見る
-      </button>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={onList} style={{ flex: 1, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px", color: C.dim, fontSize: 14, fontFamily: sans, cursor: "pointer" }}>
+          ▤ 問題一覧
+        </button>
+        <button onClick={onStats} style={{ flex: 1, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 12, padding: "14px", color: C.dim, fontSize: 14, fontFamily: sans, cursor: "pointer" }}>
+          ◷ 学習統計
+        </button>
+      </div>
     </div>
   );
 }
@@ -672,6 +705,8 @@ function SessionScreen({ questions, onFinish, onQuit, updateCard }) {
             {q.category}
           </span>
           <span style={{ fontSize: 11, color: C.faint, fontFamily: mono }}>{q.set}</span>
+          {/* 不備を報告するときの識別子。修正ログ(fix_log.md)のキーでもある */}
+          <span style={{ marginLeft: "auto", fontSize: 11, color: C.dim, fontFamily: mono }}>{q.id}</span>
         </div>
         <RichText text={q.question} style={{ fontSize: 17, lineHeight: 1.7, fontWeight: 500, margin: "0 0 24px" }} />
 
@@ -767,7 +802,7 @@ function RateBtn({ color, emoji, label, sub, onClick }) {
 }
 
 // ===== セッション結果画面 =====
-function ResultScreen({ log, onHome }) {
+function ResultScreen({ log, onHome, onOpen }) {
   const correct = log.filter((e) => e.correct).length;
   const total = log.length;
   const rate = total ? Math.round((correct / total) * 100) : 0;
@@ -799,11 +834,12 @@ function ResultScreen({ log, onHome }) {
 
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 12, color: C.faint, marginBottom: 10, fontFamily: mono }}>
-          問題別レビュー {wrongList.length > 0 && `(${wrongList.length}問間違い → 復習予定に追加)`}
+          問題別レビュー（タップで詳細） {wrongList.length > 0 && `(${wrongList.length}問間違い → 復習予定に追加)`}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {log.map((e, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, background: C.panel, border: `1px solid ${e.correct ? C.border : C.red + "44"}` }}>
+            <button key={i} onClick={() => onOpen(e)}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, background: C.panel, border: `1px solid ${e.correct ? C.border : C.red + "44"}`, textAlign: "left", fontFamily: sans, cursor: "pointer", width: "100%" }}>
               <span style={{ fontFamily: mono, fontSize: 16, color: e.correct ? C.accent : C.red, fontWeight: 700, minWidth: 16 }}>
                 {e.correct ? "✓" : "✗"}
               </span>
@@ -811,7 +847,8 @@ function ResultScreen({ log, onHome }) {
                 <div style={{ fontSize: 13, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{plainPreview(e.q.question)}</div>
                 <div style={{ fontSize: 11, color: catColor(e.q.category), marginTop: 2 }}>{e.q.category}</div>
               </div>
-            </div>
+              <span style={{ fontSize: 18, color: C.faint }}>›</span>
+            </button>
           ))}
         </div>
       </div>
@@ -819,6 +856,193 @@ function ResultScreen({ log, onHome }) {
       <button onClick={onHome} style={{ width: "100%", padding: 16, borderRadius: 14, border: "none", fontSize: 16, fontWeight: 700, fontFamily: sans, cursor: "pointer", background: `linear-gradient(135deg,${C.accentDim},#238636)`, color: "#fff" }}>
         ホームに戻る
       </button>
+    </div>
+  );
+}
+
+// ===== 問題の詳細（振り返り画面と問題一覧から使う） =====
+// 出題ではないので選択肢はシャッフルせず、questions.json の順のまま ア〜エ を振る。
+// そのため解説のラベルは元のままで正しく、remapLabels は使わない（使うとずれる）。
+function QuestionDetail({ q, selected, revealStart, onBack }) {
+  const [revealed, setRevealed] = useState(!!revealStart);
+
+  return (
+    <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 18, flex: 1, overflowY: "auto" }}>
+      <TopBar title="問題の詳細" onBack={onBack} />
+
+      <div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
+          <span style={{ display: "inline-block", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, fontFamily: mono, background: `${catColor(q.category)}22`, color: catColor(q.category) }}>
+            {q.category}
+          </span>
+          <span style={{ fontSize: 11, color: C.faint, fontFamily: mono }}>{q.set}</span>
+          <span style={{ marginLeft: "auto", fontSize: 11, color: C.dim, fontFamily: mono }}>{q.id}</span>
+        </div>
+
+        <RichText text={q.question} style={{ fontSize: 17, lineHeight: 1.7, fontWeight: 500, margin: "0 0 24px" }} />
+
+        {q.image && (
+          <img src={q.image} alt="問題の図"
+            style={{ width: "100%", maxWidth: 420, borderRadius: 8, border: `1px solid ${C.border}`, margin: "-8px 0 24px", display: "block", backgroundColor: "#fff" }} />
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {q.choices.map((choice, i) => {
+            let bg = C.panel, border = C.border, mark = null, txtColor = C.text;
+            if (revealed) {
+              if (i === q.answer) { bg = `${C.accent}1a`; border = C.accent; mark = "✓"; txtColor = C.accent; }
+              else if (i === selected) { bg = `${C.red}1a`; border = C.red; mark = "✗"; txtColor = C.red; }
+              else { txtColor = C.dim; }
+            }
+            return (
+              <div key={i}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 12, fontSize: 15, lineHeight: 1.5,
+                  background: bg, border: `1.5px solid ${border}`, color: txtColor }}>
+                <span style={{ fontFamily: mono, fontSize: 13, color: C.faint, minWidth: 18 }}>{"アイウエ"[i]}</span>
+                <RichText as="span" text={choice} style={{ flex: 1 }} />
+                {mark && <span style={{ fontWeight: 700, fontSize: 16 }}>{mark}</span>}
+              </div>
+            );
+          })}
+        </div>
+
+        {!revealed ? (
+          <button onClick={() => setRevealed(true)}
+            style={{ width: "100%", marginTop: 20, padding: 14, borderRadius: 12, border: `1px solid ${C.blue}`, background: `${C.blue}14`, color: C.blue, fontSize: 15, fontWeight: 700, fontFamily: sans, cursor: "pointer" }}>
+            解答を見る
+          </button>
+        ) : (
+          <div style={{ marginTop: 20, padding: 16, borderRadius: 12, background: C.panel, border: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: C.accent }}>正解: {"アイウエ"[q.answer]}</span>
+              <span style={{ fontSize: 12, color: C.faint }}>—　解説</span>
+            </div>
+            <RichText text={q.explanation} style={{ fontSize: 14, lineHeight: 1.8, color: C.text }} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ===== 問題一覧 =====
+const LIST_PAGE = 100;
+
+function QuestionList({ states, onOpen, onBack }) {
+  const [query, setQuery] = useState("");
+  const [cat, setCat] = useState("all");
+  const [set, setSet] = useState("all");
+  const [status, setStatus] = useState("all");
+  const [limit, setLimit] = useState(LIST_PAGE);
+
+  const statusOf = (q) => {
+    const c = states[q.id];
+    if (!c) return "new";
+    if (c.interval >= 7) return "mastered";
+    if (c.dueDate <= todayStr()) return "due";
+    return "learning";
+  };
+
+  // 検索用の文字列は1度だけ作る（1,252問を毎キー入力で作り直さない）
+  const haystack = useMemo(() => {
+    const m = {};
+    QUESTIONS.forEach((q) => { m[q.id] = (q.id + " " + plainPreview(q.question)).toLowerCase(); });
+    return m;
+  }, []);
+
+  const list = useMemo(() => {
+    const kw = query.trim().toLowerCase();
+    return QUESTIONS.filter((q) =>
+      (cat === "all" || q.category === cat) &&
+      (set === "all" || q.set === set) &&
+      (status === "all" || statusOf(q) === status) &&
+      (!kw || haystack[q.id].includes(kw))
+    );
+  }, [query, cat, set, status, states, haystack]);
+
+  // 条件を変えたら先頭に戻す
+  useEffect(() => { setLimit(LIST_PAGE); }, [query, cat, set, status]);
+
+  const counts = useMemo(() => {
+    const m = { all: QUESTIONS.length, due: 0, learning: 0, mastered: 0, new: 0 };
+    QUESTIONS.forEach((q) => { m[statusOf(q)] += 1; });
+    return m;
+  }, [states]);
+
+  const FILTERS = [
+    { key: "all", label: "すべて" },
+    { key: "due", label: "復習待ち" },
+    { key: "learning", label: "学習中" },
+    { key: "mastered", label: "定着" },
+    { key: "new", label: "未学習" },
+  ];
+  const STATUS_COLOR = { due: C.amber, learning: C.blue, mastered: C.accent, new: C.faint };
+  const STATUS_LABEL = { due: "復習待ち", learning: "学習中", mastered: "定着", new: "未学習" };
+  const selectStyle = { flex: 1, minWidth: 0, padding: "10px 12px", borderRadius: 10, background: C.panel, color: C.text, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: sans };
+
+  return (
+    <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14, flex: 1 }}>
+      <TopBar title="問題一覧" onBack={onBack} />
+
+      <input value={query} onChange={(e) => setQuery(e.target.value)}
+        placeholder="ID や問題文で検索（例: 2013A-18／最短経路）"
+        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, background: C.panel, color: C.text, border: `1px solid ${C.border}`, fontSize: 14, fontFamily: sans }} />
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <select value={cat} onChange={(e) => setCat(e.target.value)} style={selectStyle}>
+          <option value="all">分野: すべて</option>
+          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select value={set} onChange={(e) => setSet(e.target.value)} style={selectStyle}>
+          <option value="all">年度: すべて</option>
+          {SETS.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {FILTERS.map((f) => {
+          const active = status === f.key;
+          return (
+            <button key={f.key} onClick={() => setStatus(f.key)}
+              style={{ padding: "8px 12px", borderRadius: 20, fontSize: 13, fontFamily: sans, cursor: "pointer",
+                background: active ? C.blue : C.panel, color: active ? "#0d1117" : C.dim,
+                border: `1px solid ${active ? C.blue : C.border}`, fontWeight: active ? 700 : 400 }}>
+              {f.label} <span style={{ fontSize: 11, opacity: 0.8 }}>{counts[f.key]}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ fontSize: 12, color: C.faint, fontFamily: mono }}>{list.length}問</div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {list.length === 0 && (
+          <div style={{ padding: 30, textAlign: "center", color: C.faint, fontSize: 13 }}>該当する問題がありません</div>
+        )}
+        {list.slice(0, limit).map((q) => {
+          const st = statusOf(q);
+          return (
+            <button key={q.id} onClick={() => onOpen(q)}
+              style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: "12px 14px", textAlign: "left", fontFamily: sans, cursor: "pointer", display: "block", width: "100%" }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                <span style={{ fontFamily: mono, fontSize: 13, fontWeight: 700, color: C.text }}>{q.id}</span>
+                <span style={{ fontSize: 11, color: catColor(q.category) }}>{q.category}</span>
+                <span style={{ marginLeft: "auto", fontSize: 10, color: STATUS_COLOR[st], fontFamily: mono }}>{STATUS_LABEL[st]}</span>
+              </div>
+              <div style={{ fontSize: 13, color: C.dim, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {plainPreview(q.question)}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {list.length > limit && (
+        <button onClick={() => setLimit(limit + LIST_PAGE)}
+          style={{ width: "100%", padding: 14, borderRadius: 12, background: "transparent", border: `1px solid ${C.border}`, color: C.dim, fontSize: 14, fontFamily: sans, cursor: "pointer" }}>
+          もっと見る（残り{list.length - limit}件）
+        </button>
+      )}
     </div>
   );
 }
@@ -1499,6 +1723,8 @@ function AbbrQuizScreen({ cards, onFinish, onQuit, updateCard }) {
             {card.category}
           </span>
           <span style={{ fontSize: 11, color: C.faint, fontFamily: mono }}>{FREQ_LABEL[card.freq]}</span>
+          {/* 不備を報告するときの識別子。過去問IDと区別するため A- を前置する */}
+          <span style={{ marginLeft: "auto", fontSize: 11, color: C.dim, fontFamily: mono }}>A-{card.id}</span>
         </div>
 
         {/* 問題：意味を表示し、英略語を選ばせる */}
