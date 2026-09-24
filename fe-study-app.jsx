@@ -22,6 +22,11 @@ const SETS = ["2009年秋期", "2010年秋期", "2011年秋期", "2012年秋期"
 //    同一オリジンで公開していれば既存の暗記進捗がそのまま引き継がれる。
 const STORAGE_KEY = "fe-exam-srs-v1";
 const ABBR_STORAGE_KEY = "it-abbr-srs-v1";
+// 模試モード。過去問モードの学習履歴(STORAGE_KEY)とは完全に分離する。
+// 進行中は1件だけ（中断再開用）。完了した模試は履歴として新しい順に残す。
+const MOCK_STORAGE_KEY = "fe-exam-mock-v1";
+const MOCK_PROGRESS_KEY = "fe-exam-mock-progress-v1";
+const MOCK_HISTORY_MAX = 50;
 
 function loadData(key) {
   try {
@@ -39,6 +44,28 @@ function saveData(key, states) {
     return true;
   } catch (e) {
     console.warn("学習データの保存に失敗しました", e);
+    return false;
+  }
+}
+
+// loadData/saveData は {id: card} のオブジェクト前提で useCardStates が依存しているため、
+// null や配列を扱いたい模試用に汎用版を別に用意する（既存のシグネチャは変えない）。
+function loadJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (e) {
+    console.warn("データの読み込みに失敗しました", key, e);
+    return fallback;
+  }
+}
+
+function saveJSON(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (e) {
+    console.warn("データの保存に失敗しました", key, e);
     return false;
   }
 }
@@ -126,6 +153,42 @@ function makeChoiceOrder(q) {
   const base = [0, 1, 2, 3];
   return q && isSymbolOnlyChoices(q) ? base : shuffleArray(base);
 }
+
+// 選択肢の並びや個数が後から修正されたことを検出するための軽いハッシュ。
+// 模試は問題の中身を保存せず id だけを持つ（→ data/questions.json を直せば両モードに反映される）。
+// そのぶん、保存済みの「選択肢の表示順」と「選んだ選択肢の番号」だけが古い並びを指したまま
+// 残りうるので、これで突き合わせて弾く。
+function choicesHash(q) {
+  const s = q.choices.join("\u0001");
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return h;
+}
+
+// 経過時間。バックグラウンド（別タブ・画面オフ）の間は数えない。
+// 常に0から数えるので、再開時は「保存済みの経過 + これ」を使うこと。
+function useTimer(enabled, resetKey, running) {
+  const [ms, setMs] = useState(0);
+  useEffect(() => { setMs(0); }, [resetKey]);
+  useEffect(() => {
+    if (!enabled || !running) return;
+    let last = Date.now();
+    const id = setInterval(() => {
+      const now = Date.now();
+      if (document.visibilityState === "visible") setMs((m) => m + (now - last));
+      last = now;
+    }, 250);
+    return () => clearInterval(id);
+  }, [enabled, running, resetKey]);
+  return ms;
+}
+
+const fmtMs = (ms) => {
+  const t = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+  const mm = String(m).padStart(2, "0"), ss = String(s).padStart(2, "0");
+  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+};
 
 function getExplanationSummary(text) {
   const sentences = text.split("。");
@@ -279,7 +342,8 @@ export default function App() {
   // 学習中（過去問の出題中／英略語のカード学習中）はタブバーを隠して集中できるようにする
   const [quizBusy, setQuizBusy] = useState(false);
   const [abbrBusy, setAbbrBusy] = useState(false);
-  const busy = tab === "quiz" ? quizBusy : abbrBusy;
+  const [mockBusy, setMockBusy] = useState(false);
+  const busy = { quiz: quizBusy, abbr: abbrBusy, mock: mockBusy }[tab];
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: sans, display: "flex", justifyContent: "center" }}>
@@ -290,6 +354,9 @@ export default function App() {
         </div>
         <div style={{ display: tab === "abbr" ? "flex" : "none", flexDirection: "column", flex: 1 }}>
           <AbbrApp onBusyChange={setAbbrBusy} />
+        </div>
+        <div style={{ display: tab === "mock" ? "flex" : "none", flexDirection: "column", flex: 1 }}>
+          <MockApp onBusyChange={setMockBusy} />
         </div>
         {!busy && <TabBar tab={tab} onChange={setTab} />}
       </div>
@@ -302,6 +369,7 @@ function TabBar({ tab, onChange }) {
   const items = [
     { key: "quiz", icon: "📝", label: "過去問" },
     { key: "abbr", icon: "📇", label: "英略語" },
+    { key: "mock", icon: "🏁", label: "模試" },
   ];
   return (
     <div style={{
@@ -1277,7 +1345,8 @@ function SummaryCard({ label, value, color }) {
 // ===== 学習履歴のバックアップ / 復元 =====
 // 過去問（fe-exam-srs-v1）と英略語（it-abbr-srs-v1）の両方を1つのファイルにまとめて
 // 書き出し・読み込みできる。アプリを消しても、このファイルから履歴を復元できる。
-const BACKUP_KEYS = [STORAGE_KEY, ABBR_STORAGE_KEY];
+const SRS_KEYS = [STORAGE_KEY, ABBR_STORAGE_KEY];
+const BACKUP_KEYS = [...SRS_KEYS, MOCK_STORAGE_KEY];
 const BACKUP_MAGIC = "fe-exam-trainer-backup";
 
 function buildBackup() {
@@ -1292,8 +1361,19 @@ function buildBackup() {
 }
 
 function countCards(backup) {
-  return BACKUP_KEYS.reduce((sum, k) => sum + Object.keys(backup.stores[k] || {}).length, 0);
+  return SRS_KEYS.reduce((sum, k) => sum + Object.keys(backup.stores[k] || {}).length, 0);
 }
+
+// 模試履歴は {v, runs:[...]} の形なのでカード数には混ぜず、別に回数を数える
+function countMockRuns(backup) {
+  const m = backup.stores[MOCK_STORAGE_KEY];
+  return m && Array.isArray(m.runs) ? m.runs.length : 0;
+}
+
+const backupSummary = (backup) => {
+  const runs = countMockRuns(backup);
+  return `${countCards(backup)}件の学習履歴` + (runs ? `と模試${runs}回分` : "");
+};
 
 function BackupRestore() {
   const fileRef = React.useRef(null);
@@ -1302,7 +1382,7 @@ function BackupRestore() {
   const doExport = () => {
     try {
       const backup = buildBackup();
-      const n = countCards(backup);
+      const n = backupSummary(backup);
       const blob = new Blob([JSON.stringify(backup)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -1312,7 +1392,7 @@ function BackupRestore() {
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setMsg({ type: "ok", text: `${n}件の学習履歴を書き出しました。ダウンロードを確認してください。` });
+      setMsg({ type: "ok", text: `${n}を書き出しました。ダウンロードを確認してください。` });
     } catch (e) {
       setMsg({ type: "err", text: "書き出しに失敗しました: " + e.message });
     }
@@ -1328,8 +1408,8 @@ function BackupRestore() {
       if (!data || typeof data !== "object" || !data.stores || data.app !== BACKUP_MAGIC) {
         throw new Error("このアプリのバックアップファイルではありません");
       }
-      const n = countCards(data);
-      if (!window.confirm(`バックアップから${n}件の学習履歴を復元します。\n現在の履歴は上書きされます。よろしいですか？`)) return;
+      const n = backupSummary(data);
+      if (!window.confirm(`バックアップから${n}を復元します。\n現在の履歴は上書きされます。よろしいですか？`)) return;
       BACKUP_KEYS.forEach((k) => {
         if (data.stores[k]) localStorage.setItem(k, JSON.stringify(data.stores[k]));
       });
@@ -2001,6 +2081,786 @@ function AbbrStats({ states, onBack, onReset }) {
           border: `1px solid ${C.red}`, color: C.red, fontSize: 14, fontFamily: sans, cursor: "pointer" }}>
         進捗をリセット
       </button>
+    </div>
+  );
+}
+
+// ============================================================
+// 模試モード（本番形式・60問通し）
+// ============================================================
+// 【不変条件】模試は問題の中身（question/choices/answer/explanation/image）を保存しない。
+// 保存するのは id だけで、表示のたびに QUESTIONS から引く。そのため data/questions.json を
+// 直せば、過去問モードにも模試にも、履歴から開いた過去の模試の見直し画面にまで反映される。
+// ここに問題文や選択肢のスナップショットを持たせないこと（修正が二重管理になる）。
+//
+// 学習履歴（STORAGE_KEY）には一切書き込まない。updateCard を受け取らないことで構造的に保証する。
+
+// 本番（科目A 60問）の分野配分。テクノロジ系42 / マネジメント6 / ストラテジ12。
+const MOCK_BLUEPRINT = [
+  ["基礎理論", 5], ["アルゴリズム", 4], ["コンピュータ構成", 8], ["ソフトウェア", 9],
+  ["データベース", 4], ["ネットワーク", 5], ["セキュリティ", 7],   // テクノロジ系 計42
+  ["マネジメント", 6],
+  ["ストラテジ", 12],
+];
+const MOCK_TOTAL = MOCK_BLUEPRINT.reduce((s, [, n]) => s + n, 0);
+const MOCK_TECH_CATS = ["基礎理論", "アルゴリズム", "コンピュータ構成", "ソフトウェア", "データベース", "ネットワーク", "セキュリティ"];
+const MOCK_AVOID_RUNS = 3;   // 直近何回分の出題を避けるか
+
+// ===== 問題プール =====
+
+let _qById = null;
+function questionById(id) {
+  if (!_qById) {
+    _qById = new Map();
+    QUESTIONS.forEach((q) => _qById.set(q.id, q));
+  }
+  return _qById.get(id);
+}
+
+// IPAの再出題により本文がほぼ同じ問題が複数ある。同じ模試に2問入らないよう代表1問へ畳む。
+// 正規化は「空白と約物を除いた先頭80字」。選択肢の一致は条件に入れない
+// （同一問題でもOCRのゆれやLaTeX化の有無で選択肢の文字列が食い違うため、厳しくすると取りこぼす）。
+function mockNormKey(q) {
+  return q.question.replace(/[\s（）()、。,.]/g, "").slice(0, 80);
+}
+
+let _mockPool = null;
+function mockPool() {
+  if (_mockPool) return _mockPool;
+  const groups = new Map();
+  QUESTIONS.forEach((q) => {
+    const k = mockNormKey(q);
+    const g = groups.get(k);
+    if (g) g.push(q); else groups.set(k, [q]);
+  });
+  // 代表の選び方: NO1/NO2/NO3系（初期取り込み分でOCR品質が劣る）を避け、
+  // 新しい年度を優先し、最後は id の辞書順で安定させる（毎回同じ代表を選ぶため）。
+  const cmp = (a, b) => {
+    const na = a.id.startsWith("NO") ? 1 : 0, nb = b.id.startsWith("NO") ? 1 : 0;
+    if (na !== nb) return na - nb;
+    const sa = SETS.indexOf(a.set), sb = SETS.indexOf(b.set);
+    if (sa !== sb) return sb - sa;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  };
+  const byCat = {};
+  CATEGORIES.forEach((c) => { byCat[c] = []; });
+  const keyOf = new Map();
+  groups.forEach((list, k) => {
+    const rep = list.length === 1 ? list[0] : [...list].sort(cmp)[0];
+    keyOf.set(rep.id, k);
+    if (byCat[rep.category]) byCat[rep.category].push(rep);
+  });
+  _mockPool = { byCat, keyOf };
+  return _mockPool;
+}
+
+// 分野クオータで60問を引く。avoidIds は直近の模試で出た問題（見覚え感を減らすためのソフト制約）。
+function pickMockSet(avoidIds) {
+  const { byCat, keyOf } = mockPool();
+  const avoid = new Set(avoidIds);
+  const usedIds = new Set();
+  const usedKeys = new Set();   // 重複問題の二重採用を防ぐ
+  const picked = [];
+
+  const take = (cands, n) => {
+    let got = 0;
+    for (const q of shuffleArray(cands)) {
+      if (got >= n) break;
+      if (usedIds.has(q.id) || usedKeys.has(keyOf.get(q.id))) continue;
+      usedIds.add(q.id);
+      usedKeys.add(keyOf.get(q.id));
+      picked.push(q);
+      got++;
+    }
+    return got;
+  };
+
+  MOCK_BLUEPRINT.forEach(([cat, n]) => {
+    const pool = byCat[cat] || [];
+    let got = take(pool.filter((q) => !avoid.has(q.id)), n);
+    // 以下は将来データを減らしたときの安全装置。現在の収録数では発動しない。
+    if (got < n) got += take(pool, n - got);                       // 直近の出題を避けきれない
+    if (got < n) {                                                  // 分野が枯れている→同系統から補う
+      const sibs = (MOCK_TECH_CATS.includes(cat) ? MOCK_TECH_CATS : CATEGORIES).filter((c) => c !== cat);
+      for (const c of sibs) {
+        if (got >= n) break;
+        got += take(byCat[c] || [], n - got);
+      }
+    }
+  });
+  return picked;
+}
+
+// ===== 進行中データ =====
+
+function newMockProgress(runs) {
+  const avoid = new Set();
+  (runs || []).slice(0, MOCK_AVOID_RUNS).forEach((r) => (r.ids || []).forEach((id) => avoid.add(id)));
+  const qs = pickMockSet([...avoid]);
+  const now = Date.now();
+  return {
+    v: 1, startedAt: now, updatedAt: now, elapsedMs: 0,
+    ids: qs.map((q) => q.id),
+    orders: qs.map((q) => makeChoiceOrder(q)),
+    answers: qs.map(() => null),
+    hashes: qs.map((q) => choicesHash(q)),
+    idx: 0,
+  };
+}
+
+// 保存された進行中データを現在の questions.json に合わせて復元する。
+// 問題が1つでも消えていたら部分復元はしない（分野配分が崩れた模試を続けさせても意味がない）。
+// 選択肢が後から修正された問題は、表示順を作り直して解答を消す（repaired に数える）。
+function hydrateProgress(p) {
+  if (!p || p.v !== 1 || !Array.isArray(p.ids) || p.ids.length === 0) return null;
+  const qs = p.ids.map(questionById);
+  if (qs.some((q) => !q)) return null;
+
+  const orders = Array.isArray(p.orders) ? [...p.orders] : [];
+  const answers = Array.isArray(p.answers) ? [...p.answers] : [];
+  const hashes = Array.isArray(p.hashes) ? p.hashes : [];
+  let repaired = 0;
+
+  qs.forEach((q, i) => {
+    const o = orders[i];
+    const validOrder = Array.isArray(o) && o.length === 4 && [0, 1, 2, 3].every((n) => o.includes(n));
+    if (hashes[i] !== choicesHash(q)) {
+      orders[i] = makeChoiceOrder(q);          // 選択肢が修正された → 解答し直し
+      if (answers[i] != null) repaired++;
+      answers[i] = null;
+    } else if (!validOrder) {
+      orders[i] = makeChoiceOrder(q);          // 保存データの破損
+    }
+    const a = answers[i];
+    if (a != null && !(Number.isInteger(a) && a >= 0 && a <= 3)) answers[i] = null;
+  });
+
+  return {
+    v: 1,
+    startedAt: p.startedAt || Date.now(),
+    elapsedMs: Math.max(0, p.elapsedMs || 0),
+    ids: p.ids, orders, answers,
+    hashes: qs.map((q) => choicesHash(q)),
+    idx: Math.min(Math.max(0, p.idx | 0), qs.length - 1),
+    qs, repaired,
+  };
+}
+
+function saveProgress(p, answers, idx, elapsedMs) {
+  return saveJSON(MOCK_PROGRESS_KEY, {
+    v: 1, startedAt: p.startedAt, updatedAt: Date.now(), elapsedMs,
+    ids: p.ids, orders: p.orders, hashes: p.hashes, answers, idx,
+  });
+}
+
+// ===== 採点 =====
+
+// corrects は正誤を "1"/"0" の文字列で凍結する。あとから answer が修正されても、
+// その日に取った点数と問題別の○×が食い違わないようにするため。
+function gradeMock(p, answers, elapsedMs) {
+  const byCat = {};
+  let correct = 0;
+  let corrects = "";
+  p.ids.forEach((id, i) => {
+    const q = questionById(id);
+    const cat = q ? q.category : "不明";
+    const cell = byCat[cat] || (byCat[cat] = [0, 0]);
+    cell[0]++;
+    const ok = !!q && answers[i] === q.answer;
+    if (ok) { cell[1]++; correct++; }
+    corrects += ok ? "1" : "0";
+  });
+  return {
+    v: 1, runId: "m-" + p.startedAt,
+    startedAt: p.startedAt, finishedAt: Date.now(), elapsedMs,
+    total: p.ids.length, correct, byCat,
+    ids: p.ids, answers, hashes: p.hashes, corrects,
+  };
+}
+
+function loadMockHistory() {
+  const d = loadJSON(MOCK_STORAGE_KEY, null);
+  if (!d || d.v !== 1 || !Array.isArray(d.runs)) return [];
+  return d.runs.filter((r) => r && r.v === 1 && Array.isArray(r.ids));
+}
+
+function saveMockHistory(runs) {
+  return saveJSON(MOCK_STORAGE_KEY, { v: 1, runs: runs.slice(0, MOCK_HISTORY_MAX) });
+}
+
+const fmtStamp = (ts) => {
+  const d = new Date(ts);
+  const p2 = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}/${p2(d.getMonth() + 1)}/${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+};
+
+// 起動時に進行中データを読む。問題が削除されていて復元できないときは、
+// 中途半端な状態を残さず捨てたうえで理由を知らせる。
+function bootMockProgress() {
+  const raw = loadJSON(MOCK_PROGRESS_KEY, null);
+  const h = hydrateProgress(raw);
+  if (raw && !h) {
+    localStorage.removeItem(MOCK_PROGRESS_KEY);
+    return { progress: null, notice: "問題データが更新されたため、中断していた模試は再開できませんでした" };
+  }
+  return { progress: h, notice: null };
+}
+
+// ===== 模試モードのルート =====
+function MockApp({ onBusyChange }) {
+  const [screen, setScreen] = useState("home");
+  const [runs, setRuns] = useState(loadMockHistory);
+  const [boot] = useState(bootMockProgress);
+  const [progress, setProgress] = useState(boot.progress);
+  const [notice, setNotice] = useState(boot.notice);
+  const [current, setCurrent] = useState(null);      // 表示中の結果（直後 or 履歴）
+  const [scoreFrom, setScoreFrom] = useState("home");
+  const [detail, setDetail] = useState(null);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [histFailed, setHistFailed] = useState(false);
+
+  useEffect(() => { onBusyChange(screen === "exam"); }, [screen, onBusyChange]);
+
+  const progressRef = React.useRef(null);
+  progressRef.current = progress;
+
+  const persist = useCallback(({ answers, idx, elapsedMs }) => {
+    const p = progressRef.current;
+    if (!p) return;
+    setSaveFailed(!saveProgress(p, answers, idx, elapsedMs));
+  }, []);
+
+  const startNew = () => {
+    const raw = newMockProgress(runs);
+    const h = hydrateProgress(raw);
+    if (!h) { setNotice("問題を抽出できませんでした"); return; }
+    saveJSON(MOCK_PROGRESS_KEY, raw);
+    setProgress(h);
+    setNotice(null);
+    setScreen("exam");
+  };
+
+  const resume = () => { setNotice(null); setScreen("exam"); };
+
+  const discard = () => {
+    if (!window.confirm("中断した模試を破棄します。よろしいですか？")) return;
+    localStorage.removeItem(MOCK_PROGRESS_KEY);
+    setProgress(null);
+    setSaveFailed(false);
+  };
+
+  const suspend = ({ answers, idx, elapsedMs }) => {
+    const p = progressRef.current;
+    if (!p) { setScreen("home"); return; }
+    setSaveFailed(!saveProgress(p, answers, idx, elapsedMs));
+    setProgress({ ...p, answers, idx, elapsedMs, repaired: 0 });
+    setScreen("home");
+  };
+
+  const submit = ({ answers, elapsedMs }) => {
+    const p = progressRef.current;
+    if (!p) { setScreen("home"); return; }
+    const run = gradeMock(p, answers, elapsedMs);
+    let list = [run, ...runs].slice(0, MOCK_HISTORY_MAX);
+    let ok = saveMockHistory(list);
+    while (!ok && list.length > 1) {          // 容量オーバー → 古いものから捨ててリトライ
+      list = list.slice(0, list.length - 1);
+      ok = saveMockHistory(list);
+    }
+    setHistFailed(!ok);
+    setRuns(list);
+    localStorage.removeItem(MOCK_PROGRESS_KEY);
+    setProgress(null);
+    setSaveFailed(false);
+    setCurrent(run);
+    setScoreFrom("home");
+    setScreen("score");
+  };
+
+  const openRun = (run) => { setCurrent(run); setScoreFrom("history"); setScreen("score"); };
+
+  const openDetail = (i) => {
+    const run = current;
+    const q = questionById(run.ids[i]);
+    if (!q) return;
+    // 選択肢が後から修正されていたら、保存してある解答番号は別の選択肢を指している可能性が
+    // あるのでハイライトしない（§修正済みバッジ）
+    const edited = run.hashes && run.hashes[i] !== choicesHash(q);
+    setDetail({ q, selected: edited ? null : run.answers[i] });
+    setScreen("detail");
+  };
+
+  return (
+    <>
+      {screen === "home" && (
+        <MockHome
+          progress={progress} runs={runs} notice={notice} saveFailed={saveFailed}
+          onStart={startNew} onResume={resume} onDiscard={discard}
+          onHistory={() => setScreen("history")}
+        />
+      )}
+      {screen === "exam" && progress && (
+        <MockExamScreen
+          key={progress.startedAt} init={progress} saveFailed={saveFailed}
+          onPersist={persist} onSuspend={suspend} onSubmit={submit}
+        />
+      )}
+      {(screen === "history" || (scoreFrom === "history" && (screen === "score" || screen === "detail"))) && (
+        <div style={{ display: screen === "history" ? "flex" : "none", flexDirection: "column", flex: 1 }}>
+          <MockHistoryScreen runs={runs} onOpen={openRun} onBack={() => setScreen("home")} />
+        </div>
+      )}
+      {(screen === "score" || screen === "detail") && current && (
+        <div style={{ display: screen === "score" ? "flex" : "none", flexDirection: "column", flex: 1 }}>
+          <MockScore
+            run={current} isFresh={scoreFrom === "home"} histFailed={histFailed}
+            onOpen={openDetail} onBack={() => setScreen(scoreFrom)}
+          />
+        </div>
+      )}
+      {screen === "detail" && detail && (
+        <QuestionDetail
+          key={detail.q.id} q={detail.q} selected={detail.selected}
+          revealStart={true} onBack={() => setScreen("score")}
+        />
+      )}
+    </>
+  );
+}
+
+// ===== 模試ホーム =====
+function MockHome({ progress, runs, notice, saveFailed, onStart, onResume, onDiscard, onHistory }) {
+  const last = runs[0];
+  const done = progress ? progress.answers.filter((a) => a != null).length : 0;
+
+  return (
+    <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 22, flex: 1, overflowY: "auto" }}>
+      <div style={{ paddingTop: 12 }}>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800 }}>模試</h1>
+        <p style={{ margin: "6px 0 0", fontSize: 13, color: C.dim, lineHeight: 1.7 }}>
+          過去問から本番の分野配分どおりに{MOCK_TOTAL}問を抽選し、通しで解きます。<br />
+          採点は最後にまとめて。学習履歴（過去問モード）には影響しません。
+        </p>
+      </div>
+
+      {notice && (
+        <div style={{ padding: 12, borderRadius: 10, background: `${C.amber}14`, border: `1px solid ${C.amber}55`, fontSize: 13, color: C.amber }}>
+          {notice}
+        </div>
+      )}
+
+      {progress && (
+        <div style={{ padding: 16, borderRadius: 14, background: C.panel, border: `1px solid ${C.blue}55` }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.blue, marginBottom: 4 }}>中断した模試があります</div>
+          <div style={{ fontSize: 12, color: C.dim, fontFamily: mono, marginBottom: 12 }}>
+            {done}/{progress.ids.length}問・経過 {fmtMs(progress.elapsedMs)}・{fmtStamp(progress.startedAt)}開始
+          </div>
+          {saveFailed && (
+            <div style={{ fontSize: 12, color: C.red, marginBottom: 10 }}>⚠ 中断の保存ができていません</div>
+          )}
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={onResume}
+              style={{ flex: 1, padding: 12, borderRadius: 10, border: "none", background: C.blue, color: "#0d1117", fontSize: 14, fontWeight: 700, fontFamily: sans, cursor: "pointer" }}>
+              再開する
+            </button>
+            <button onClick={onDiscard}
+              style={{ padding: "12px 16px", borderRadius: 10, border: `1px solid ${C.border}`, background: "transparent", color: C.dim, fontSize: 14, fontFamily: sans, cursor: "pointer" }}>
+              破棄
+            </button>
+          </div>
+        </div>
+      )}
+
+      <button onClick={onStart} disabled={!!progress}
+        style={{ ...cardBtn, border: "none", cursor: progress ? "default" : "pointer", opacity: progress ? 0.4 : 1,
+          background: `linear-gradient(135deg,${C.accentDim},#238636)`, color: "#fff" }}>
+        <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 4 }}>🏁 模試を始める</div>
+        <div style={{ fontSize: 12, opacity: 0.85 }}>
+          {MOCK_TOTAL}問・通し・毎回ちがうセット{progress ? "（先に中断中の模試を終えるか破棄してください）" : ""}
+        </div>
+      </button>
+
+      <Section title="分野配分">
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {MOCK_BLUEPRINT.map(([cat, n]) => (
+            <span key={cat} style={{ padding: "5px 10px", borderRadius: 20, fontSize: 12, fontFamily: sans,
+              background: `${catColor(cat)}1a`, color: catColor(cat), border: `1px solid ${catColor(cat)}44` }}>
+              {cat} <span style={{ fontFamily: mono, fontWeight: 700 }}>{n}</span>
+            </span>
+          ))}
+        </div>
+      </Section>
+
+      {last && (
+        <Section title="直近の成績">
+          <button onClick={onHistory}
+            style={{ width: "100%", padding: 16, borderRadius: 12, background: C.panel, border: `1px solid ${C.border}`, cursor: "pointer", fontFamily: sans, textAlign: "left", display: "flex", alignItems: "center", gap: 14 }}>
+            <div>
+              <div style={{ fontFamily: mono, fontSize: 24, fontWeight: 800, color: rateColor(Math.round((last.correct / last.total) * 100)) }}>
+                {Math.round((last.correct / last.total) * 100)}<span style={{ fontSize: 13 }}>%</span>
+              </div>
+              <div style={{ fontSize: 11, color: C.faint, fontFamily: mono }}>{last.correct}/{last.total}問</div>
+            </div>
+            <div style={{ flex: 1, fontSize: 12, color: C.dim }}>
+              {fmtStamp(last.startedAt)}<br />
+              <span style={{ fontFamily: mono }}>所要 {fmtMs(last.elapsedMs)}</span>
+            </div>
+            <span style={{ fontSize: 18, color: C.faint }}>›</span>
+          </button>
+        </Section>
+      )}
+
+      <button onClick={onHistory} disabled={runs.length === 0}
+        style={{ padding: 14, borderRadius: 12, border: `1px solid ${C.border}`, background: C.panel,
+          color: runs.length ? C.text : C.faint, fontSize: 14, fontFamily: sans, cursor: runs.length ? "pointer" : "default" }}>
+        履歴を見る{runs.length ? `（${runs.length}回）` : "（まだありません）"}
+      </button>
+    </div>
+  );
+}
+
+const rateColor = (rate) => (rate >= 80 ? C.accent : rate >= 60 ? C.blue : C.amber);
+
+// ===== 模試の実施画面（通し・答えは見せない） =====
+function MockExamScreen({ init, saveFailed, onPersist, onSuspend, onSubmit }) {
+  const { qs, orders } = init;
+  const [answers, setAnswers] = useState(init.answers);
+  const [idx, setIdx] = useState(init.idx);
+  const [palette, setPalette] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const [repairNotice, setRepairNotice] = useState(init.repaired > 0);
+
+  const ms = useTimer(true, init.startedAt, true);
+  const totalMs = init.elapsedMs + ms;
+  const msRef = React.useRef(0);
+  msRef.current = ms;
+
+  const bodyRef = React.useRef(null);
+  useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [idx]);
+
+  const liveRef = React.useRef({ answers, idx });
+  liveRef.current = { answers, idx };
+
+  // 保存トリガは「解答」「移動」「60秒ごと」「非表示化」「離脱」だけ。
+  // タイマー更新（250ms）では保存しない（setItem は同期I/O）。
+  const persistNow = useCallback(() => {
+    const l = liveRef.current;
+    onPersist({ answers: l.answers, idx: l.idx, elapsedMs: init.elapsedMs + msRef.current });
+  }, [onPersist, init.elapsedMs]);
+
+  useEffect(() => {
+    const t = setInterval(persistNow, 60000);
+    const onVis = () => { if (document.visibilityState === "hidden") persistNow(); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", persistNow);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pagehide", persistNow);
+    };
+  }, [persistNow]);
+
+  const commit = (nextAnswers, nextIdx) => {
+    setAnswers(nextAnswers);
+    setIdx(nextIdx);
+    onPersist({ answers: nextAnswers, idx: nextIdx, elapsedMs: init.elapsedMs + msRef.current });
+  };
+
+  const q = qs[idx];
+  const answeredCount = answers.filter((a) => a != null).length;
+  const unanswered = answers.reduce((acc, a, i) => (a == null ? [...acc, i + 1] : acc), []);
+
+  const select = (origIdx) => {
+    const next = [...answers];
+    next[idx] = origIdx;
+    commit(next, idx);
+  };
+
+  const go = (n) => {
+    const next = Math.min(Math.max(0, n), qs.length - 1);
+    if (next !== idx) commit(answers, next);
+  };
+
+  const quit = () => {
+    if (!window.confirm("模試を中断します。あとで再開できます。よろしいですか？")) return;
+    onSuspend({ answers, idx, elapsedMs: init.elapsedMs + msRef.current });
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: "100vh" }}>
+      <div style={{ padding: "14px 20px 10px", borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button onClick={quit} style={{ background: "transparent", border: "none", color: C.dim, fontSize: 20, cursor: "pointer", padding: 0 }}>✕</button>
+          <div style={{ flex: 1, height: 6, background: C.panel, borderRadius: 3, overflow: "hidden" }}>
+            <div style={{ width: `${(answeredCount / qs.length) * 100}%`, height: "100%", background: C.accent, borderRadius: 3, transition: "width .3s" }} />
+          </div>
+          <span style={{ fontFamily: mono, fontSize: 13, color: C.dim }}>{fmtMs(totalMs)}</span>
+          <button onClick={() => setPalette(true)}
+            style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8, padding: "5px 10px", color: C.text, fontSize: 12, fontFamily: mono, cursor: "pointer" }}>
+            {idx + 1}/{qs.length}
+          </button>
+        </div>
+        {saveFailed && (
+          <div style={{ marginTop: 8, fontSize: 11, color: C.red }}>⚠ 中断の保存ができていません（このまま解き終えてください）</div>
+        )}
+        {repairNotice && (
+          <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, color: C.amber, flex: 1 }}>
+              {init.repaired}問が修正されたため解答し直しになります
+            </span>
+            <button onClick={() => setRepairNotice(false)}
+              style={{ background: "transparent", border: "none", color: C.faint, fontSize: 12, cursor: "pointer", padding: 0 }}>閉じる</button>
+          </div>
+        )}
+      </div>
+
+      <div ref={bodyRef} style={{ flex: 1, padding: "20px", overflowY: "auto" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
+          <span style={{ display: "inline-block", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, fontFamily: mono, background: `${catColor(q.category)}22`, color: catColor(q.category) }}>
+            {q.category}
+          </span>
+          <span style={{ fontSize: 11, color: C.faint, fontFamily: mono }}>{q.set}</span>
+          <span style={{ marginLeft: "auto", fontSize: 11, color: C.dim, fontFamily: mono }}>{q.id}</span>
+        </div>
+
+        <RichText text={q.question} style={{ fontSize: 17, lineHeight: 1.7, fontWeight: 500, margin: "0 0 24px" }} />
+
+        {q.image && (
+          <img src={q.image} alt="問題の図"
+            style={{ width: "100%", maxWidth: 420, borderRadius: 8, border: `1px solid ${C.border}`, margin: "-8px 0 24px", display: "block", backgroundColor: "#fff" }} />
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {orders[idx].map((origIdx, displayIdx) => {
+            const chosen = answers[idx] === origIdx;
+            return (
+              <button key={origIdx} onClick={() => select(origIdx)}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 12, textAlign: "left", fontFamily: sans, fontSize: 15, lineHeight: 1.5,
+                  background: chosen ? `${C.blue}1a` : C.panel, border: `1.5px solid ${chosen ? C.blue : C.border}`,
+                  color: C.text, cursor: "pointer", transition: "all .15s" }}>
+                <span style={{ fontFamily: mono, fontSize: 13, color: chosen ? C.blue : C.faint, minWidth: 18, fontWeight: chosen ? 700 : 400 }}>{"アイウエ"[displayIdx]}</span>
+                <RichText as="span" text={q.choices[origIdx]} style={{ flex: 1 }} />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ padding: "12px 20px", paddingBottom: "calc(12px + env(safe-area-inset-bottom))", borderTop: `1px solid ${C.border}`, background: C.panel, display: "flex", gap: 10 }}>
+        <button onClick={() => go(idx - 1)} disabled={idx === 0}
+          style={{ padding: "12px 18px", borderRadius: 10, border: `1px solid ${C.border}`, background: "transparent", color: idx === 0 ? C.faint : C.text, fontSize: 14, fontFamily: sans, cursor: idx === 0 ? "default" : "pointer" }}>
+          ← 前へ
+        </button>
+        {idx < qs.length - 1 ? (
+          <button onClick={() => go(idx + 1)}
+            style={{ flex: 1, padding: 12, borderRadius: 10, border: "none", background: C.blue, color: "#0d1117", fontSize: 15, fontWeight: 700, fontFamily: sans, cursor: "pointer" }}>
+            次へ →
+          </button>
+        ) : (
+          <button onClick={() => setConfirm(true)}
+            style={{ flex: 1, padding: 12, borderRadius: 10, border: "none", background: `linear-gradient(135deg,${C.accentDim},#238636)`, color: "#fff", fontSize: 15, fontWeight: 700, fontFamily: sans, cursor: "pointer" }}>
+            採点する
+          </button>
+        )}
+      </div>
+
+      {palette && (
+        <MockSheet onClose={() => setPalette(false)}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>解答状況</div>
+          <div style={{ fontSize: 12, color: C.dim, fontFamily: mono, marginBottom: 12 }}>
+            回答済み {answeredCount} / 未回答 {qs.length - answeredCount}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 6, marginBottom: 16 }}>
+            {qs.map((_, i) => {
+              const cur = i === idx, ans = answers[i] != null;
+              return (
+                <button key={i} onClick={() => { go(i); setPalette(false); }}
+                  style={{ aspectRatio: "1", borderRadius: 6, fontFamily: mono, fontSize: 11, cursor: "pointer",
+                    background: ans ? `${C.blue}33` : C.bg,
+                    border: `1.5px solid ${cur ? C.accent : ans ? C.blue + "88" : C.border}`,
+                    color: ans ? C.text : C.faint, fontWeight: cur ? 700 : 400, padding: 0 }}>
+                  {i + 1}
+                </button>
+              );
+            })}
+          </div>
+          <button onClick={() => { setPalette(false); setConfirm(true); }}
+            style={{ width: "100%", padding: 14, borderRadius: 12, border: "none", background: `linear-gradient(135deg,${C.accentDim},#238636)`, color: "#fff", fontSize: 15, fontWeight: 700, fontFamily: sans, cursor: "pointer" }}>
+            採点する
+          </button>
+        </MockSheet>
+      )}
+
+      {confirm && (
+        <MockSheet onClose={() => setConfirm(false)}>
+          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>採点しますか？</div>
+          <div style={{ fontSize: 13, color: C.dim, lineHeight: 1.7, marginBottom: 16 }}>
+            {unanswered.length > 0
+              ? <>未回答が <span style={{ color: C.amber, fontFamily: mono, fontWeight: 700 }}>{unanswered.length}問</span> あります（問 {unanswered.slice(0, 12).join(", ")}{unanswered.length > 12 ? " …" : ""}）。<br />未回答は不正解として集計されます。</>
+              : <>全{qs.length}問に解答済みです。</>}
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={() => setConfirm(false)}
+              style={{ padding: "12px 18px", borderRadius: 10, border: `1px solid ${C.border}`, background: "transparent", color: C.dim, fontSize: 14, fontFamily: sans, cursor: "pointer" }}>
+              戻る
+            </button>
+            <button onClick={() => onSubmit({ answers, elapsedMs: init.elapsedMs + msRef.current })}
+              style={{ flex: 1, padding: 12, borderRadius: 10, border: "none", background: `linear-gradient(135deg,${C.accentDim},#238636)`, color: "#fff", fontSize: 15, fontWeight: 700, fontFamily: sans, cursor: "pointer" }}>
+              採点する
+            </button>
+          </div>
+        </MockSheet>
+      )}
+    </div>
+  );
+}
+
+function MockSheet({ onClose, children }) {
+  return (
+    <div onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "#000000aa", zIndex: 30, display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+      <div onClick={(e) => e.stopPropagation()}
+        style={{ width: "100%", maxWidth: 480, background: C.panel, borderTop: `1px solid ${C.border}`, borderRadius: "16px 16px 0 0",
+          padding: 18, paddingBottom: "calc(18px + env(safe-area-inset-bottom))", maxHeight: "78vh", overflowY: "auto", animation: "slideUp .2s" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ===== 模試の結果（実施直後と履歴の両方で使う） =====
+function MockScore({ run, isFresh, histFailed, onOpen, onBack }) {
+  const rate = run.total ? Math.round((run.correct / run.total) * 100) : 0;
+  const col = rateColor(rate);
+  const message = rate >= 80 ? "合格ラインを大きく超えています"
+    : rate >= 60 ? "合格ライン（60%）を超えています"
+    : "合格ラインは60%。間違えた分野を重点的に";
+
+  return (
+    <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 22, flex: 1, overflowY: "auto" }}>
+      <TopBar title={isFresh ? "模試の結果" : "過去の模試"} onBack={onBack} />
+
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontFamily: mono, fontSize: 12, color: C.dim, marginBottom: 8 }}>{fmtStamp(run.startedAt)}</div>
+        <div style={{ position: "relative", width: 150, height: 150, margin: "0 auto" }}>
+          <svg width="150" height="150" style={{ transform: "rotate(-90deg)" }}>
+            <circle cx="75" cy="75" r="64" fill="none" stroke={C.panel} strokeWidth="11" />
+            <circle cx="75" cy="75" r="64" fill="none" stroke={col} strokeWidth="11" strokeLinecap="round"
+              strokeDasharray={`${2 * Math.PI * 64}`} strokeDashoffset={`${2 * Math.PI * 64 * (1 - rate / 100)}`}
+              style={{ transition: "stroke-dashoffset 1s ease" }} />
+          </svg>
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontFamily: mono, fontSize: 38, fontWeight: 800, color: col }}>{rate}<span style={{ fontSize: 18 }}>%</span></span>
+            <span style={{ fontSize: 13, color: C.dim }}>{run.correct} / {run.total} 問正解</span>
+          </div>
+        </div>
+        <p style={{ marginTop: 14, marginBottom: 4, fontSize: 15, fontWeight: 600, color: col }}>{message}</p>
+        <div style={{ fontFamily: mono, fontSize: 12, color: C.faint }}>所要時間 {fmtMs(run.elapsedMs)}</div>
+      </div>
+
+      {histFailed && isFresh && (
+        <div style={{ padding: 12, borderRadius: 10, background: `${C.red}14`, border: `1px solid ${C.red}55`, fontSize: 13, color: C.red }}>
+          履歴を保存できませんでした（この結果は画面を離れると消えます）
+        </div>
+      )}
+
+      <Section title="分野別の正答率">
+        <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+          {CATEGORIES.filter((c) => run.byCat[c]).map((c) => (
+            <CatRateBar key={c} cat={c} n={run.byCat[c][0]} c={run.byCat[c][1]} />
+          ))}
+        </div>
+      </Section>
+
+      <Section title="問題別レビュー（タップで詳細）">
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {run.ids.map((id, i) => {
+            const q = questionById(id);
+            const ok = run.corrects ? run.corrects[i] === "1" : (!!q && run.answers[i] === q.answer);
+            if (!q) {
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, background: C.panel, border: `1px solid ${C.border}`, opacity: 0.5 }}>
+                  <span style={{ fontFamily: mono, fontSize: 16, color: C.faint, minWidth: 16 }}>{ok ? "✓" : "✗"}</span>
+                  <div style={{ flex: 1, fontSize: 13, color: C.faint }}>（この問題は削除されました）</div>
+                  <span style={{ fontSize: 11, color: C.faint, fontFamily: mono }}>{id}</span>
+                </div>
+              );
+            }
+            const edited = run.hashes && run.hashes[i] !== choicesHash(q);
+            return (
+              <button key={i} onClick={() => onOpen(i)}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, background: C.panel, border: `1px solid ${ok ? C.border : C.red + "44"}`, textAlign: "left", fontFamily: sans, cursor: "pointer", width: "100%" }}>
+                <span style={{ fontFamily: mono, fontSize: 16, color: ok ? C.accent : C.red, fontWeight: 700, minWidth: 16 }}>{ok ? "✓" : "✗"}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{plainPreview(q.question)}</div>
+                  <div style={{ fontSize: 11, color: catColor(q.category), marginTop: 2 }}>
+                    {q.category}
+                    {run.answers[i] == null && <span style={{ color: C.amber, marginLeft: 8 }}>未回答</span>}
+                    {edited && <span style={{ color: C.faint, marginLeft: 8 }}>修正済み</span>}
+                  </div>
+                </div>
+                <span style={{ fontSize: 18, color: C.faint }}>›</span>
+              </button>
+            );
+          })}
+        </div>
+      </Section>
+
+      <button onClick={onBack}
+        style={{ width: "100%", padding: 16, borderRadius: 14, border: "none", fontSize: 16, fontWeight: 700, fontFamily: sans, cursor: "pointer", background: `linear-gradient(135deg,${C.accentDim},#238636)`, color: "#fff" }}>
+        {isFresh ? "模試ホームに戻る" : "履歴に戻る"}
+      </button>
+    </div>
+  );
+}
+
+function CatRateBar({ cat, n, c }) {
+  const rate = n ? Math.round((c / n) * 100) : 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <span style={{ fontSize: 12, color: C.dim, minWidth: 96 }}>{cat}</span>
+      <div style={{ flex: 1, height: 8, background: C.bg, borderRadius: 4, overflow: "hidden" }}>
+        <div style={{ width: `${rate}%`, height: "100%", background: catColor(cat), borderRadius: 4 }} />
+      </div>
+      <span style={{ fontFamily: mono, fontSize: 11, color: C.dim, minWidth: 62, textAlign: "right" }}>{c}/{n}・{rate}%</span>
+    </div>
+  );
+}
+
+// ===== 模試の履歴 =====
+function MockHistoryScreen({ runs, onOpen, onBack }) {
+  return (
+    <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 18, flex: 1, overflowY: "auto" }}>
+      <TopBar title="模試の履歴" onBack={onBack} />
+
+      {runs.length === 0 ? (
+        <div style={{ padding: 40, textAlign: "center", color: C.faint, fontSize: 13 }}>まだ模試の記録はありません</div>
+      ) : (
+        <>
+          <div style={{ fontSize: 12, color: C.faint, fontFamily: mono }}>
+            {runs.length}回（最大{MOCK_HISTORY_MAX}回まで保存）
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {runs.map((r) => {
+              const rate = r.total ? Math.round((r.correct / r.total) * 100) : 0;
+              return (
+                <button key={r.runId} onClick={() => onOpen(r)}
+                  style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 12, background: C.panel, border: `1px solid ${C.border}`, textAlign: "left", fontFamily: sans, cursor: "pointer", width: "100%" }}>
+                  <div style={{ minWidth: 54 }}>
+                    <div style={{ fontFamily: mono, fontSize: 20, fontWeight: 800, color: rateColor(rate) }}>{rate}<span style={{ fontSize: 11 }}>%</span></div>
+                    <div style={{ fontFamily: mono, fontSize: 10, color: C.faint }}>{r.correct}/{r.total}</div>
+                  </div>
+                  <div style={{ flex: 1, fontSize: 12, color: C.dim, lineHeight: 1.6 }}>
+                    {fmtStamp(r.startedAt)}<br />
+                    <span style={{ fontFamily: mono, color: C.faint }}>所要 {fmtMs(r.elapsedMs)}</span>
+                  </div>
+                  <span style={{ fontSize: 18, color: C.faint }}>›</span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }
