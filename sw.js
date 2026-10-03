@@ -1,5 +1,5 @@
 // Service Worker - オフライン対応
-const CACHE = 'fe-exam-v26';
+const CACHE = 'fe-exam-v27';
 const ASSETS = [
   './', './index.html', './app.js', './manifest.json', './icon-192.png', './icon-512.png',
   './katex/katex.min.css',
