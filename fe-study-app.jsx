@@ -3,6 +3,11 @@ import { createRoot } from "react-dom/client";
 import katex from "katex";
 import QUESTIONS from "./data/questions.json";
 import ABBRS from "./data/abbr.json";
+import CALC_IDS_RAW from "./data/calc_ids.json";
+
+// 計算問題（数値計算で解答する問題）のid集合。判定基準は tools/mark_calc.py が一次情報。
+// 基準を変えたら mark_calc.py --apply で再生成するだけで、ここは自動的に追従する。
+const CALC_IDS = new Set(CALC_IDS_RAW.ids);
 
 const CATEGORIES = ["基礎理論", "アルゴリズム", "コンピュータ構成", "ソフトウェア", "データベース", "ネットワーク", "セキュリティ", "マネジメント", "ストラテジ"];
 
@@ -397,12 +402,21 @@ function TabBar({ tab, onChange }) {
 }
 
 // ===== 過去問モード =====
+// 計算問題フィルタ。判定は data/calc_ids.json（tools/mark_calc.py が生成）が一次情報。
+// "all"=絞り込まない／"only"=計算問題だけ／"exclude"=計算問題を除く
+function filterByCalc(qs, mode) {
+  if (mode === "only") return qs.filter((q) => CALC_IDS.has(q.id));
+  if (mode === "exclude") return qs.filter((q) => !CALC_IDS.has(q.id));
+  return qs;
+}
+
 function QuizApp({ onBusyChange }) {
   const [screen, setScreen] = useState("home");
   const [states, updateCard, resetAll] = useCardStates(STORAGE_KEY);
   const [sessionQs, setSessionQs] = useState([]);
   const [sessionLog, setSessionLog] = useState([]);
   const [detail, setDetail] = useState(null);  // { q, selected, revealStart, from }
+  const [reviewCalcFilter, setReviewCalcFilter] = useState("all");  // ホームの「今日の復習」用
 
   useEffect(() => { onBusyChange(screen === "session"); }, [screen, onBusyChange]);
 
@@ -413,6 +427,11 @@ function QuizApp({ onBusyChange }) {
       return c && c.dueDate <= today;
     });
   }, [states]);
+
+  const dueQuestionsFiltered = useMemo(
+    () => filterByCalc(dueQuestions, reviewCalcFilter),
+    [dueQuestions, reviewCalcFilter]
+  );
 
   const newQuestions = useMemo(
     () => QUESTIONS.filter((q) => !states[q.id]),
@@ -439,9 +458,10 @@ function QuizApp({ onBusyChange }) {
     <>
       {screen === "home" && (
         <HomeScreen
-          states={states} dueCount={dueQuestions.length} newCount={newQuestions.length}
+          states={states} dueCount={dueQuestionsFiltered.length} newCount={newQuestions.length}
           totalCount={QUESTIONS.length}
-          onReview={() => startSession(shuffle(dueQuestions).slice(0, 20))}
+          calcFilter={reviewCalcFilter} onCalcFilterChange={setReviewCalcFilter}
+          onReview={() => startSession(shuffle(dueQuestionsFiltered).slice(0, 20))}
           onSetup={() => setScreen("setup")}
           onList={() => setScreen("list")}
           onStats={() => setScreen("stats")}
@@ -503,7 +523,7 @@ function shuffle(arr) {
 }
 
 // ===== ホーム画面 =====
-function HomeScreen({ states, dueCount, newCount, totalCount, onReview, onSetup, onList, onStats }) {
+function HomeScreen({ states, dueCount, newCount, totalCount, calcFilter, onCalcFilterChange, onReview, onSetup, onList, onStats }) {
   const learned = Object.keys(states).length;
   const mastered = Object.values(states).filter((c) => c.interval >= 7).length;
   const progress = totalCount ? Math.round((learned / totalCount) * 100) : 0;
@@ -529,6 +549,19 @@ function HomeScreen({ states, dueCount, newCount, totalCount, onReview, onSetup,
           <Stat label="学習済み" value={learned} unit={`/ ${totalCount}`} />
           <Stat label="定着" value={mastered} unit="問" color={C.blue} />
         </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 6 }}>
+        {[["all", "すべて"], ["only", "計算問題だけ"], ["exclude", "計算問題なし"]].map(([key, label]) => (
+          <button key={key} onClick={() => onCalcFilterChange(key)}
+            style={{ flex: 1, padding: "7px 4px", borderRadius: 8, fontSize: 11, fontFamily: sans, cursor: "pointer",
+              background: calcFilter === key ? C.panelHi : "transparent",
+              border: `1px solid ${calcFilter === key ? C.accent : C.border}`,
+              color: calcFilter === key ? C.text : C.faint,
+              fontWeight: calcFilter === key ? 700 : 400 }}>
+            {label}
+          </button>
+        ))}
       </div>
 
       <button onClick={dueCount > 0 ? onReview : undefined}
@@ -587,13 +620,15 @@ function SetupScreen({ states, newQuestions, onStart, onBack }) {
   const [selectedSets, setSelectedSets] = useState([]);
   const [count, setCount] = useState(10);
   const [mode, setMode] = useState("new");
+  const [calcFilter, setCalcFilter] = useState("all");
 
   const pool = useMemo(() => {
     let qs = mode === "new" ? newQuestions : QUESTIONS;
     if (selectedCats.length > 0) qs = qs.filter((q) => selectedCats.includes(q.category));
     if (selectedSets.length > 0) qs = qs.filter((q) => selectedSets.includes(q.set));
+    qs = filterByCalc(qs, calcFilter);
     return qs;
-  }, [mode, selectedCats, selectedSets, newQuestions]);
+  }, [mode, selectedCats, selectedSets, calcFilter, newQuestions]);
 
   const toggleCat = (cat) =>
     setSelectedCats((prev) => prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]);
@@ -603,23 +638,33 @@ function SetupScreen({ states, newQuestions, onStart, onBack }) {
 
   const actualCount = Math.min(count, pool.length);
 
-  // カテゴリごとの残数を計算（出題セットの選択を反映）
+  // カテゴリごとの残数を計算（出題セット・計算問題フィルタの選択を反映）
   const catCounts = useMemo(() => {
     let base = mode === "new" ? newQuestions : QUESTIONS;
     if (selectedSets.length > 0) base = base.filter((q) => selectedSets.includes(q.set));
+    base = filterByCalc(base, calcFilter);
     const m = {};
     CATEGORIES.forEach((c) => { m[c] = base.filter((q) => q.category === c).length; });
     return m;
-  }, [mode, newQuestions, selectedSets]);
+  }, [mode, newQuestions, selectedSets, calcFilter]);
 
-  // 出題セットごとの残数を計算（分野の選択を反映）
+  // 出題セットごとの残数を計算（分野・計算問題フィルタの選択を反映）
   const setCounts = useMemo(() => {
     let base = mode === "new" ? newQuestions : QUESTIONS;
     if (selectedCats.length > 0) base = base.filter((q) => selectedCats.includes(q.category));
+    base = filterByCalc(base, calcFilter);
     const m = {};
     SETS.forEach((s) => { m[s] = base.filter((q) => q.set === s).length; });
     return m;
-  }, [mode, newQuestions, selectedCats]);
+  }, [mode, newQuestions, selectedCats, calcFilter]);
+
+  // 計算問題フィルタ各選択肢の残数（分野・セットの選択を反映）
+  const calcCounts = useMemo(() => {
+    let base = mode === "new" ? newQuestions : QUESTIONS;
+    if (selectedCats.length > 0) base = base.filter((q) => selectedCats.includes(q.category));
+    if (selectedSets.length > 0) base = base.filter((q) => selectedSets.includes(q.set));
+    return { all: base.length, only: filterByCalc(base, "only").length, exclude: filterByCalc(base, "exclude").length };
+  }, [mode, newQuestions, selectedCats, selectedSets]);
 
   return (
     <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 22, flex: 1 }}>
@@ -667,6 +712,14 @@ function SetupScreen({ states, newQuestions, onStart, onBack }) {
               </button>
             );
           })}
+        </div>
+      </Section>
+
+      <Section title="計算問題">
+        <div style={{ display: "flex", gap: 10 }}>
+          <Toggle active={calcFilter === "all"} onClick={() => setCalcFilter("all")} label="すべて" sub={`${calcCounts.all}問`} />
+          <Toggle active={calcFilter === "only"} onClick={() => setCalcFilter("only")} label="計算問題だけ" sub={`${calcCounts.only}問`} />
+          <Toggle active={calcFilter === "exclude"} onClick={() => setCalcFilter("exclude")} label="計算問題を除く" sub={`${calcCounts.exclude}問`} />
         </div>
       </Section>
 
@@ -1848,6 +1901,21 @@ function AbbrQuizScreen({ cards, onFinish, onQuit, updateCard }) {
                 <span style={{ color: C.amber, fontWeight: 700 }}>豆 </span>{card.tips}
               </div>
             )}
+            {/* 正解以外の3語も full/meaning を出す。4択の誤答にも学習価値があるため */}
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 12, color: C.faint, marginBottom: 8, fontFamily: mono, letterSpacing: 0.5 }}>そのほかの語</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {quiz.choices.filter((c) => c.id !== card.id).map((c) => (
+                  <div key={c.id}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                      <span style={{ fontFamily: mono, fontSize: 14, fontWeight: 700, color: C.text }}>{c.abbr}</span>
+                      <span style={{ fontSize: 12, color: C.dim }}>{c.full}</span>
+                    </div>
+                    <div style={{ fontSize: 13, color: C.faint, marginTop: 2 }}>{c.meaning}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
