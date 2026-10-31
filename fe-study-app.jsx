@@ -207,6 +207,33 @@ function getExplanationSummary(text) {
   return summary;
 }
 
+// 解説は選択肢ごとに \n で区切ってある（tools/fix_explanations.py が入れる）。
+// 出題時は選択肢をシャッフルするため、データ上の順（ア→イ→ウ→エ）のままだと
+// 表示順と食い違って読みにくい。本文を先頭に置き、続けて「正解の解説 → 残りを表示順の昇順」
+// に並べ替える。複数の選択肢をまとめて述べるブロック（「ア、イ、ウの値は…」）は
+// 先頭の記号で位置を決め、1ブロックのまま動かす。
+const CHOICE_BLOCK = /^([アイウエ])(?:[．.、，]|は|が|の|に|について)/;
+
+function orderExplanation(text, shuffledOrder, answer) {
+  if (!text || !text.includes("\n")) return { lead: text || "", rest: "" };
+  const keyed = text.split("\n").map((b) => {
+    const m = CHOICE_BLOCK.exec(b);
+    return { b, orig: m ? "アイウエ".indexOf(m[1]) : -1 };
+  });
+  const first = keyed.findIndex((x) => x.orig >= 0);
+  if (first < 0) return { lead: text, rest: "" };
+  const rank = (x) => {
+    if (x.orig < 0) return 1e6;                 // 選択肢に紐づかないブロックは末尾へ
+    if (x.orig === answer) return -1;           // 正解の解説を先頭に
+    return shuffledOrder.indexOf(x.orig);       // 残りは表示順の昇順
+  };
+  const rest = keyed.slice(first)
+    .map((x, i) => ({ ...x, i }))
+    .sort((p, q) => (rank(p) - rank(q)) || (p.i - q.i))  // 同順位は元の順を保つ
+    .map((x) => x.b);
+  return { lead: keyed.slice(0, first).map((x) => x.b).join("\n"), rest: rest.join("\n") };
+}
+
 // 選択肢シャッフルに合わせ、解説文中の選択肢ラベル（ア/イ/ウ/エ）を表示順に変換する。
 // map は元ラベル→表示ラベルの対応。ソフトウェア。/ハードウェアは 等のカタカナ語末尾の
 // ア/イ/ウ/エを誤変換しないよう、直前がカタカナでない（＝単独のラベル）ものだけを対象にし、
@@ -414,6 +441,9 @@ function QuizApp({ onBusyChange }) {
   const [screen, setScreen] = useState("home");
   const [states, updateCard, resetAll] = useCardStates(STORAGE_KEY);
   const [sessionQs, setSessionQs] = useState([]);
+  // スキップしたときの差し替え候補。新規の出題では「余った問題」が入り、
+  // 今日の復習では空のまま。空かどうかでスキップの動きが決まる（→ SessionScreen）
+  const [sessionSpares, setSessionSpares] = useState([]);
   const [sessionLog, setSessionLog] = useState([]);
   const [detail, setDetail] = useState(null);  // { q, selected, revealStart, from }
   const [reviewCalcFilter, setReviewCalcFilter] = useState("all");  // ホームの「今日の復習」用
@@ -438,8 +468,9 @@ function QuizApp({ onBusyChange }) {
     [states]
   );
 
-  const startSession = (questions) => {
+  const startSession = (questions, spares = []) => {
     setSessionQs(questions);
+    setSessionSpares(spares);
     setSessionLog([]);
     setScreen("session");
   };
@@ -475,7 +506,7 @@ function QuizApp({ onBusyChange }) {
       )}
       {screen === "session" && (
         <SessionScreen
-          questions={sessionQs} onFinish={finishSession}
+          questions={sessionQs} spares={sessionSpares} onFinish={finishSession}
           onQuit={() => setScreen("home")} updateCard={updateCard}
         />
       )}
@@ -733,7 +764,13 @@ function SetupScreen({ states, newQuestions, onStart, onBack }) {
 
       <div style={{ flex: 1 }} />
 
-      <button onClick={() => actualCount > 0 && onStart(shuffle(pool).slice(0, count))}
+      {/* シャッフルは1回だけ。先頭 count 問を出題し、残り全部をスキップ時の
+          差し替え候補（spares）にする。同じ並びの前後なので重複しない */}
+      <button onClick={() => {
+        if (actualCount === 0) return;
+        const shuffled = shuffle(pool);
+        onStart(shuffled.slice(0, count), shuffled.slice(count));
+      }}
         disabled={actualCount === 0}
         style={{ width: "100%", padding: 18, borderRadius: 14, border: "none", fontSize: 16, fontWeight: 700, fontFamily: sans,
           cursor: actualCount > 0 ? "pointer" : "default",
@@ -768,16 +805,22 @@ function Toggle({ active, onClick, label, sub }) {
 }
 
 // ===== セッション（問題）画面 =====
-function SessionScreen({ questions, onFinish, onQuit, updateCard }) {
+function SessionScreen({ questions, spares = [], onFinish, onQuit, updateCard }) {
   const [idx, setIdx] = useState(0);
   const [selected, setSelected] = useState(null);
   const [answered, setAnswered] = useState(false);
   const [log, setLog] = useState([]);
   const [shuffledOrder, setShuffledOrder] = useState(() => makeChoiceOrder(questions[0]));
   const [showFull, setShowFull] = useState(false);
+  // 新しいフックは必ずここから下（末尾）に足す。render_check.mjs --session が
+  // useState を「呼び出し順」で差し替えているので、上6つの順番を変えると壊れる。
+  // スキップで問題を差し替えるので questions は state に持つ
+  const [qs, setQs] = useState(questions);
+  const [spareIdx, setSpareIdx] = useState(0);
 
-  const q = questions[idx];
-  const isLast = idx === questions.length - 1;
+  const q = qs[idx];
+  const isLast = idx === qs.length - 1;
+  const hasSpare = spareIdx < spares.length;
 
   if (!q) {
     return <div style={{ padding: 40, textAlign: "center", color: C.dim }}>問題がありません</div>;
@@ -801,9 +844,35 @@ function SessionScreen({ questions, onFinish, onQuit, updateCard }) {
       setIdx(idx + 1);
       setSelected(null);
       setAnswered(false);
-      setShuffledOrder(makeChoiceOrder(questions[idx + 1]));
+      setShuffledOrder(makeChoiceOrder(qs[idx + 1]));
       setShowFull(false);
     }
+  };
+
+  // スキップ。差し替え候補があれば今の位置の問題を入れ替えてその場に留まり（＝問題数を維持）、
+  // 無ければ次へ進む。どちらの場合も updateCard を呼ばないので学習履歴には何も書かれず、
+  // 復習で出た問題は期限切れのまま（＝未回答のまま）残る。
+  const handleSkip = () => {
+    const newLog = [...log, { q, selected: null, correct: false, skipped: true }];
+    setLog(newLog);
+    setSelected(null);
+    setAnswered(false);
+    setShowFull(false);
+    if (hasSpare) {
+      const next = spares[spareIdx];
+      const nextQs = [...qs];
+      nextQs[idx] = next;
+      setQs(nextQs);
+      setSpareIdx(spareIdx + 1);
+      setShuffledOrder(makeChoiceOrder(next));
+      return;
+    }
+    if (isLast) {
+      onFinish(newLog);
+      return;
+    }
+    setIdx(idx + 1);
+    setShuffledOrder(makeChoiceOrder(qs[idx + 1]));
   };
 
   const isCorrect = selected === q.answer;
@@ -814,9 +883,9 @@ function SessionScreen({ questions, onFinish, onQuit, updateCard }) {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button onClick={onQuit} style={{ background: "transparent", border: "none", color: C.dim, fontSize: 20, cursor: "pointer", padding: 0 }}>✕</button>
           <div style={{ flex: 1, height: 6, background: C.panel, borderRadius: 3, overflow: "hidden" }}>
-            <div style={{ width: `${((idx + (answered ? 1 : 0)) / questions.length) * 100}%`, height: "100%", background: C.accent, borderRadius: 3, transition: "width .3s" }} />
+            <div style={{ width: `${((idx + (answered ? 1 : 0)) / qs.length) * 100}%`, height: "100%", background: C.accent, borderRadius: 3, transition: "width .3s" }} />
           </div>
-          <span style={{ fontFamily: mono, fontSize: 13, color: C.dim }}>{idx + 1}/{questions.length}</span>
+          <span style={{ fontFamily: mono, fontSize: 13, color: C.dim }}>{idx + 1}/{qs.length}</span>
         </div>
       </div>
 
@@ -872,8 +941,12 @@ function SessionScreen({ questions, onFinish, onQuit, updateCard }) {
           shuffledOrder.forEach((origIdx, displayIdx) => {
             labelMap["アイウエ"[origIdx]] = "アイウエ"[displayIdx];
           });
-          const explanation = remapLabels(q.explanation, labelMap);
-          const summary = getExplanationSummary(explanation);
+          // 本文→正解の解説→残りを表示順、に並べ替えてからラベルを書き換える
+          const { lead, rest } = orderExplanation(q.explanation, shuffledOrder, q.answer);
+          const explanation = remapLabels(rest ? `${lead}\n${rest}` : lead, labelMap);
+          // 選択肢ごとに分かれているときは本文だけを畳んだ状態で見せる。
+          // 改行の無い古い形式の解説は従来どおり先頭1〜2文を要約にする。
+          const summary = (rest && lead) ? remapLabels(lead, labelMap) : getExplanationSummary(explanation);
           const hasMore = explanation !== summary;
           return (
             <div style={{ marginTop: 20, padding: 16, borderRadius: 12, background: C.panel, border: `1px solid ${C.border}`, animation: "fadeIn .3s" }}>
@@ -894,6 +967,19 @@ function SessionScreen({ questions, onFinish, onQuit, updateCard }) {
           );
         })()}
       </div>
+
+      {/* 未解答のときだけ出す。差し替え候補の有無で起きることが変わるので補足の文言も変える */}
+      {!answered && (
+        <div style={{ padding: "12px 20px", borderTop: `1px solid ${C.border}`, background: C.panel }}>
+          <button onClick={handleSkip}
+            style={{ width: "100%", padding: "10px 4px", borderRadius: 12, border: `1px solid ${C.border}`, background: "transparent", cursor: "pointer", fontFamily: sans, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.dim }}>⤴ スキップ</span>
+            <span style={{ fontSize: 11, color: C.faint }}>
+              {hasSpare ? "別の問題に差し替えます" : "あとで復習します"}
+            </span>
+          </button>
+        </div>
+      )}
 
       {answered && (
         <div style={{ padding: "16px 20px", borderTop: `1px solid ${C.border}`, background: C.panel, animation: "slideUp .3s" }}>
@@ -924,13 +1010,18 @@ function RateBtn({ color, emoji, label, sub, onClick }) {
 
 // ===== セッション結果画面 =====
 function ResultScreen({ log, onHome, onOpen }) {
-  const correct = log.filter((e) => e.correct).length;
-  const total = log.length;
+  // スキップは採点に入れない。total に含めると正答率が不当に下がるため、
+  // 正答率・間違い件数はすべて answeredLog から数える（一覧だけは全件を出す）
+  const answeredLog = log.filter((e) => !e.skipped);
+  const skippedCount = log.length - answeredLog.length;
+  const correct = answeredLog.filter((e) => e.correct).length;
+  const total = answeredLog.length;
   const rate = total ? Math.round((correct / total) * 100) : 0;
-  const wrongList = log.filter((e) => !e.correct);
+  const wrongList = answeredLog.filter((e) => !e.correct);
 
   let message, msgColor;
-  if (rate >= 80) { message = "素晴らしい！この調子です"; msgColor = C.accent; }
+  if (total === 0) { message = "すべてスキップしました"; msgColor = C.dim; }
+  else if (rate >= 80) { message = "素晴らしい！この調子です"; msgColor = C.accent; }
   else if (rate >= 60) { message = "良いペース。復習で確実に"; msgColor = C.blue; }
   else { message = "間違えた問題を重点復習しよう"; msgColor = C.amber; }
 
@@ -956,17 +1047,20 @@ function ResultScreen({ log, onHome, onOpen }) {
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 12, color: C.faint, marginBottom: 10, fontFamily: mono }}>
           問題別レビュー（タップで詳細） {wrongList.length > 0 && `(${wrongList.length}問間違い → 復習予定に追加)`}
+          {skippedCount > 0 && `（スキップ${skippedCount}問は採点に含めていません）`}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {log.map((e, i) => (
             <button key={i} onClick={() => onOpen(e)}
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, background: C.panel, border: `1px solid ${e.correct ? C.border : C.red + "44"}`, textAlign: "left", fontFamily: sans, cursor: "pointer", width: "100%" }}>
-              <span style={{ fontFamily: mono, fontSize: 16, color: e.correct ? C.accent : C.red, fontWeight: 700, minWidth: 16 }}>
-                {e.correct ? "✓" : "✗"}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, background: C.panel, border: `1px solid ${e.correct || e.skipped ? C.border : C.red + "44"}`, textAlign: "left", fontFamily: sans, cursor: "pointer", width: "100%" }}>
+              <span style={{ fontFamily: mono, fontSize: 16, color: e.skipped ? C.amber : e.correct ? C.accent : C.red, fontWeight: 700, minWidth: 16 }}>
+                {e.skipped ? "—" : e.correct ? "✓" : "✗"}
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{plainPreview(e.q.question)}</div>
-                <div style={{ fontSize: 11, color: catColor(e.q.category), marginTop: 2 }}>{e.q.category}</div>
+                <div style={{ fontSize: 11, color: catColor(e.q.category), marginTop: 2 }}>
+                  {e.q.category}{e.skipped && <span style={{ color: C.amber }}> ・スキップ</span>}
+                </div>
               </div>
               <span style={{ fontSize: 18, color: C.faint }}>›</span>
             </button>
