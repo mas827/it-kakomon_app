@@ -214,16 +214,33 @@ function getExplanationSummary(text) {
 // 先頭の記号で位置を決め、1ブロックのまま動かす。
 const CHOICE_BLOCK = /^([アイウエ])(?:[．.、，]|は|が|の|に|について)/;
 
+// 「表（図）の a〜d のどれに該当するか」を問う問題では、選択肢ア〜エが a〜d と1対1で
+// 対応する。この種の解説は設問の表と同じ a→b→c→d の順に読めたほうが分かりやすく、
+// しかも**シャッフルに左右されない**ので、選択肢の表示順より letter の昇順を優先する。
+// 条件は「記号つきブロックが3つ以上あり、どれも a〜d をちょうど1つずつ重複なく参照する」。
+// 2011A-01（a,bに入る語句の組合せ）や 2014A-04（逆ポーランド記法の a,b,c,d）のように
+// 選択肢と a〜d が対応しない問題は、記号つきブロックが2つしか無いので掛からない。
+const LETTER_REF = /(?<![0-9A-Za-z])([a-d])(?![0-9A-Za-z])/;
+
+function isLetterMapping(keyed) {
+  const ls = keyed.filter((x) => x.orig >= 0).map((x) => x.letter);
+  if (ls.length < 3 || ls.some((l) => l === null)) return false;
+  return new Set(ls).size === ls.length;
+}
+
 function orderExplanation(text, shuffledOrder, answer) {
   if (!text || !text.includes("\n")) return { lead: text || "", rest: "" };
   const keyed = text.split("\n").map((b) => {
     const m = CHOICE_BLOCK.exec(b);
-    return { b, orig: m ? "アイウエ".indexOf(m[1]) : -1 };
+    const l = LETTER_REF.exec(b);
+    return { b, orig: m ? "アイウエ".indexOf(m[1]) : -1, letter: l ? l[1] : null };
   });
   const first = keyed.findIndex((x) => x.orig >= 0);
   if (first < 0) return { lead: text, rest: "" };
+  const byLetter = isLetterMapping(keyed);
   const rank = (x) => {
     if (x.orig < 0) return 1e6;                 // 選択肢に紐づかないブロックは末尾へ
+    if (byLetter) return x.letter.charCodeAt(0); // a→b→c→d の昇順（表示順に依らない）
     if (x.orig === answer) return -1;           // 正解の解説を先頭に
     return shuffledOrder.indexOf(x.orig);       // 残りは表示順の昇順
   };
