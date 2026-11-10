@@ -24,7 +24,7 @@ runtime_files() {
 # data/*.json はビルド時に app.js へ取り込まれるので実行時には不要。
 # それでも上げるのは、GitHubが手元以外で唯一のバックアップだから。
 backup_files() {
-  echo fe-study-app.jsx package.json package-lock.json | tr ' ' '\n'
+  echo fe-study-app.jsx ui-common.jsx package.json package-lock.json | tr ' ' '\n'
   echo data/questions.json data/abbr.json data/calc_ids.json data/answer_keys.json | tr ' ' '\n'
   # 保守スクリプト。失うと検証・リリースの仕組みを作り直すことになる。
   # tools/ocr は ocr.swift からビルドする成果物（arm64バイナリ）なので含めない

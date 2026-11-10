@@ -11,6 +11,12 @@
 //   node tools/render_check.mjs --behavior               描画では見えない「性質」を検査する（模試の
 //        あとで解く・復習への登録・理解度の選び直し）。hookを差し替えたミニランタイムで
 //        コンポーネント関数を直接呼び、props の onXxx を叩く。失敗があれば exit 1
+//   node tools/render_check.mjs --snapshot <out.json>    全件のスナップショットを採る（リファクタの前後比較用）
+//        過去問1,252問の詳細画面と出題画面、英略語の出題画面、主要画面をHTMLのSHA-256で、
+//        純関数（SRS・解説の並べ替え・時間表示など）を値そのもので記録する。乱数・時計・localStorage を
+//        固定するので、同じコードなら何度採っても1バイトも変わらない
+//   node tools/render_check.mjs --snapshot-diff <a.json> <b.json>
+//        2つのスナップショットを比べ、差のあった項目を一覧する。差があれば exit 1
 //   node tools/render_check.mjs --list                   使える主要コンポーネント名を表示
 //
 // 出力は生のHTML（stdout）。grepや文字列includesで確認する。例:
@@ -21,6 +27,8 @@
 
 import { build } from "esbuild";
 import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -45,6 +53,13 @@ async function loadApp() {
     "AbbrQuizScreen", "AbbrHome", "AbbrList", "buildAbbrChoices",
     "SessionScreen", "orderExplanation",
     "MockApp", "MockExamScreen", "MockScore",
+    // --snapshot 用（画面）
+    "App", "SetupScreen", "StatsScreen", "AbbrSetup", "AbbrStats",
+    "MockHome", "MockDetail", "MockHistoryScreen",
+    // --snapshot 用（純関数）
+    "initCard", "reviewCard", "loadData", "saveData", "histCorrect", "fmtMs",
+    "makeChoiceOrder", "isSymbolOnlyChoices", "getExplanationSummary", "remapLabels", "plainPreview",
+    "abbrSimilarity", "mockNormKey", "mockPool", "newMockProgress", "gradeMock",
   ];
   const result = await build({
     entryPoints: [ENTRY],
@@ -60,8 +75,17 @@ async function loadApp() {
   const mod = { exports: {} };
   const fn = new Function("module", "exports", "require", "__dirname", code);
   global.document = global.document || { getElementById: () => null };
-  fn(mod, mod.exports, require, ROOT);
-  return mod.exports.__rc;
+  try {
+    fn(mod, mod.exports, require, ROOT);
+  } catch (e) {
+    // フッタが参照する名前がバンドルに無いと ReferenceError になる（ファイル分割で名前が変わった等）
+    throw new Error(`render_check: バンドルの読み込みに失敗: ${e.message}`);
+  }
+  const rc = mod.exports.__rc;
+  // 黙って undefined のまま進まないよう、全部そろっているかを先に確かめる
+  const missing = EXPORTS.filter((n) => rc[n] === undefined);
+  if (missing.length) throw new Error(`render_check: 見つからない名前: ${missing.join(", ")}`);
+  return rc;
 }
 
 function render(el) {
@@ -248,9 +272,278 @@ async function behavior(app) {
   if (fails) process.exit(1);
 }
 
+// ===== --snapshot: リファクタの前後で出力が1バイトも変わらないことを全件で確かめる =====
+// 描画（HTML）は SHA-256、純関数は値そのもの（差が出たときに何が変わったか読めるように）を記録する。
+// 乱数・時計・localStorage を固定し、項目ごとに乱数の種をキーから作り直すので、
+// 同じコードなら何度採っても同じ。項目を足し引きしても他の項目の結果はずれない。
+
+const SNAP_NOW = Date.parse("2026-01-15T12:00:00Z");   // todayStr() は UTC で "2026-01-15"
+
+function fnv1a(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return h >>> 0;
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function installDeterminism() {
+  const real = { random: Math.random, Date: globalThis.Date, localStorage: global.localStorage, window: global.window };
+  const RealDate = real.Date;
+  class FixedDate extends RealDate {
+    constructor(...a) { if (a.length === 0) super(SNAP_NOW); else super(...a); }
+    static now() { return SNAP_NOW; }
+  }
+  FixedDate.parse = RealDate.parse;
+  FixedDate.UTC = RealDate.UTC;
+  globalThis.Date = FixedDate;
+  let store = {};
+  global.localStorage = {
+    getItem: (k) => (k in store ? store[k] : null),
+    setItem: (k, v) => { store[k] = String(v); },
+    removeItem: (k) => { delete store[k]; },
+    clear: () => { store = {}; },
+  };
+  global.window = { confirm: () => true, alert() {}, scrollTo() {}, addEventListener() {}, removeEventListener() {}, localStorage: global.localStorage };
+  return {
+    // 項目ごとに乱数の種と保存領域を作り直す
+    reset(key, storage) { Math.random = mulberry32(fnv1a(key)); store = { ...(storage || {}) }; },
+    restore() {
+      Math.random = real.random; globalThis.Date = real.Date;
+      global.localStorage = real.localStorage; global.window = real.window;
+    },
+  };
+}
+
+// 学習状態の見本。約1/7ずつ「今日が期日」「定着」「学習中」、残りは未学習にしてばらつかせる
+function srsFixture(items, keyOf) {
+  const states = {};
+  items.forEach((it, i) => {
+    const k = i % 7;
+    if (k > 2) return;
+    const history = [{ date: `2026-01-0${1 + (i % 9)}`, ts: SNAP_NOW - (i + 1) * 3600e3, quality: i % 3, correct: i % 3 !== 0 }];
+    const base = { history, lapses: k === 0 ? 1 : 0 };
+    if (k === 0) states[keyOf(it)] = { ...base, interval: 1, easeFactor: 2.3, dueDate: "2026-01-15", reps: 1, lastResult: "incorrect" };
+    if (k === 1) states[keyOf(it)] = { ...base, interval: 30, easeFactor: 2.7, dueDate: "2026-02-14", reps: 4, lastResult: "correct" };
+    if (k === 2) states[keyOf(it)] = { ...base, interval: 3, easeFactor: 2.5, dueDate: "2026-01-18", reps: 2, lastResult: "correct" };
+  });
+  return states;
+}
+
+async function snapshot(app, outPath) {
+  const QUESTIONS = require(path.join(ROOT, "data", "questions.json"));
+  const ABBRS = require(path.join(ROOT, "data", "abbr.json"));
+  const det = installDeterminism();
+  const items = {};
+  const errors = [];
+  const noop = () => {};
+  const sha = (str) => createHash("sha256").update(str).digest("hex");
+  const guard = (key, f) => {
+    try { items[key] = f(); }
+    catch (e) { items[key] = `!error: ${e.message}`; errors.push(`${key}: ${e.message}`); }
+  };
+  const html = (key, el, storage) => guard(key, () => { det.reset(key, storage); return sha(render(el)); });
+  const val = (key, f, storage) => guard(key, () => { det.reset(key, storage); return f(); });
+  const h = React.createElement;
+  // KaTeX の strict 警告や loadData の失敗ログで出力が埋もれないよう、実行中の警告は件数だけ数える
+  const realConsole = { warn: console.warn, error: console.error };
+  const warns = new Map();
+  const tally = (...a) => { const m = String(a[0]).split("\n")[0].replace(/"[^"]*"/g, '"…"').slice(0, 90); warns.set(m, (warns.get(m) || 0) + 1); };
+  console.warn = tally;
+  console.error = tally;
+
+  try {
+    // ① 過去問の詳細画面（全件・解答を開いた状態）
+    for (const q of QUESTIONS) {
+      html(`QD:${q.id}`, h(app.QuestionDetail, { q, selected: null, revealStart: true, onBack: noop }));
+    }
+
+    // ② 出題画面（全件・回答済み・解説を展開）。表示順は makeChoiceOrder がキー固定の乱数で決める
+    for (const q of QUESTIONS) {
+      const key = `SS:${q.id}`;
+      guard(key, () => {
+        det.reset(key);
+        const order = app.makeChoiceOrder(q);
+        items[`fn:makeChoiceOrder:${q.id}`] = order;
+        det.reset(key);
+        // SessionScreen の useState 呼び出し順: idx, selected, answered, log, shuffledOrder, showFull
+        return sha(withForcedHooks(
+          React,
+          new Map([[0, 0], [1, order.indexOf(q.answer)], [2, true], [3, []], [4, order], [5, true]]),
+          () => render(h(app.SessionScreen, { questions: [q], onFinish: noop, onQuit: noop, updateCard: noop }))
+        ));
+      });
+    }
+
+    // ③ 英略語の出題画面（全件・回答済み）。画面内の useMemo が同じ選択肢を作るよう、描画の直前にも種を戻す
+    for (const card of ABBRS) {
+      const key = `AB:${card.id}`;
+      guard(key, () => {
+        det.reset(key);
+        const quiz = app.buildAbbrChoices(card);
+        items[`fn:buildAbbrChoices:${card.id}`] = { ids: quiz.choices.map((c) => c.id), answer: quiz.answer };
+        det.reset(key);
+        return sha(withForcedHooks(
+          React,
+          new Map([[0, 0], [1, quiz.answer], [2, true], [3, []]]),
+          () => render(h(app.AbbrQuizScreen, { cards: [card], onFinish: noop, onQuit: noop, updateCard: noop }))
+        ));
+      });
+    }
+
+    // ④ 主要画面。学習状態の見本を与える
+    const qStates = srsFixture(QUESTIONS, (q) => q.id);
+    const aStates = srsFixture(ABBRS, (a) => a.id);
+    const storage = { "fe-exam-srs-v1": JSON.stringify(qStates), "it-abbr-srs-v1": JSON.stringify(aStates) };
+    html("SC:App", h(app.App), storage);
+    html("SC:App-empty", h(app.App));
+    html("SC:QuestionList", h(app.QuestionList, { states: qStates, onOpen: noop, onBack: noop }));
+    html("SC:SetupScreen", h(app.SetupScreen, { states: qStates, newQuestions: QUESTIONS.filter((q) => !qStates[q.id]), onStart: noop, onBack: noop }));
+    html("SC:StatsScreen", h(app.StatsScreen, { states: qStates, onBack: noop, onReset: noop }));
+    html("SC:StatsScreen-empty", h(app.StatsScreen, { states: {}, onBack: noop, onReset: noop }));
+    const log = QUESTIONS.slice(0, 12).map((q, i) => ({
+      q, selected: i % 3 === 0 ? q.answer : (q.answer + 1) % 4, correct: i % 3 === 0, quality: i % 3,
+    }));
+    html("SC:ResultScreen", h(app.ResultScreen, { log, onHome: noop, onOpen: noop }));
+    html("SC:AbbrList", h(app.AbbrList, { states: aStates, onBack: noop }));
+    html("SC:AbbrSetup", h(app.AbbrSetup, { states: aStates, newAbbrs: ABBRS.filter((a) => !aStates[a.id]), onStart: noop, onBack: noop }));
+    html("SC:AbbrStats", h(app.AbbrStats, { states: aStates, onBack: noop, onReset: noop }));
+
+    // 模試：出題・採点は乱数と時計を固定したうえでアプリ自身の関数で作る
+    let p = null, run = null;
+    val("fn:newMockProgress", () => (p = app.newMockProgress([])));
+    if (p) {
+      const byId = new Map(QUESTIONS.map((q) => [q.id, q]));
+      const answers = p.ids.map((id, i) => (i % 3 === 0 ? byId.get(id).answer : i % 3 === 1 ? (byId.get(id).answer + 1) % 4 : null));
+      val("fn:gradeMock", () => (run = app.gradeMock(p, answers, 1234567)));
+    }
+    if (p && run) {
+      html("SC:MockHome", h(app.MockHome, { progress: p, runs: [run], notice: null, saveFailed: false, onStart: noop, onResume: noop, onDiscard: noop, onHistory: noop }));
+      html("SC:MockHome-empty", h(app.MockHome, { progress: null, runs: [], notice: null, saveFailed: false, onStart: noop, onResume: noop, onDiscard: noop, onHistory: noop }));
+      html("SC:MockScore-fresh", h(app.MockScore, { run, isFresh: true, histFailed: false, onRate: noop, onOpen: noop, onBack: noop }));
+      html("SC:MockScore-history", h(app.MockScore, { run, isFresh: false, histFailed: false, onRate: null, onOpen: noop, onBack: noop }));
+      html("SC:MockHistoryScreen", h(app.MockHistoryScreen, { runs: [run], onOpen: noop, onBack: noop }));
+      const q0 = QUESTIONS.find((q) => q.id === run.ids[0]);
+      html("SC:MockDetail", h(app.MockDetail, { i: 0, total: run.ids.length, rating: 2, onRate: noop, onStep: noop },
+        h(app.QuestionDetail, { q: q0, selected: run.answers[0], revealStart: true, onBack: noop })));
+    }
+    const qs5 = QUESTIONS.slice(0, 5);
+    html("SC:MockExamScreen", h(app.MockExamScreen, {
+      init: { qs: qs5, ids: qs5.map((q) => q.id), orders: qs5.map(() => [0, 1, 2, 3]), answers: [0, null, 2, null, 1],
+        flags: [false, true, false, false, true], idx: 1, elapsedMs: 3754000, startedAt: SNAP_NOW, repaired: 0 },
+      saveFailed: false, onPersist: noop, onSuspend: noop, onSubmit: noop,
+    }));
+
+    // ⑤ 純関数（値そのもの）
+    val("fn:initCard", () => app.initCard());
+    const bases = [
+      app.initCard(),
+      { interval: 1, easeFactor: 2.5, dueDate: "2026-01-15", reps: 1, lapses: 0, history: [], lastResult: "correct" },
+      { interval: 4, easeFactor: 2.6, dueDate: "2026-01-15", reps: 2, lapses: 0, history: [], lastResult: "correct" },
+      { interval: 10, easeFactor: 1.3, dueDate: "2026-01-15", reps: 3, lapses: 4, history: [], lastResult: "incorrect" },
+      { interval: 60, easeFactor: 3.0, dueDate: "2026-01-15", reps: 5, lapses: 1, history: [], lastResult: "correct" },
+      { interval: 170, easeFactor: 2.8, dueDate: "2026-01-15", reps: 8, lapses: 0, history: [], lastResult: "correct" },
+    ];
+    val("fn:reviewCard", () => bases.flatMap((b) => [0, 1, 2].flatMap((qual) =>
+      [true, false, undefined].map((c) => app.reviewCard(b, qual, c)))));
+    val("fn:fmtMs", () => [0, 999, 1000, 59000, 59999, 60000, 599000, 3599000, 3600000, 3661000, 36000000].map(app.fmtMs));
+    val("fn:histCorrect", () => [{ quality: 0 }, { quality: 1 }, { quality: 2 }, { quality: 2, correct: false }, { quality: 0, correct: true }].map(app.histCorrect));
+    val("fn:isSymbolOnlyChoices", () => QUESTIONS.filter(app.isSymbolOnlyChoices).map((q) => q.id));
+    val("fn:getExplanationSummary", () => Object.fromEntries(QUESTIONS.map((q) => [q.id, app.getExplanationSummary(q.explanation || "")])));
+    const rev = { "ア": "エ", "イ": "ウ", "ウ": "イ", "エ": "ア" };
+    val("fn:remapLabels", () => Object.fromEntries(QUESTIONS.map((q) => [q.id, sha(app.remapLabels(q.explanation || "", rev))])));
+    val("fn:plainPreview", () => Object.fromEntries(QUESTIONS.map((q) => [q.id, sha(app.plainPreview(q.question))])));
+    val("fn:mockNormKey", () => Object.fromEntries(QUESTIONS.map((q) => [q.id, app.mockNormKey(q)])));
+    val("fn:mockPool", () => JSON.parse(JSON.stringify(app.mockPool(), (k, v) => (v && typeof v === "object" && v.id && v.choices ? v.id : v))));
+    val("fn:abbrSimilarity", () => {
+      const s = ABBRS.slice(0, 25);
+      return s.flatMap((a) => s.map((b) => Math.round(app.abbrSimilarity(a, b) * 1e9) / 1e9));
+    });
+    val("fn:loadData-saveData", () => {
+      app.saveData("k", { a: 1 });
+      localStorage.setItem("broken", "{");
+      return [app.loadData("k"), app.loadData("broken"), app.loadData("none")];
+    });
+  } finally {
+    det.restore();
+    console.warn = realConsole.warn;
+    console.error = realConsole.error;
+  }
+
+  const keys = Object.keys(items).sort();
+  const counts = {};
+  keys.forEach((k) => { const pfx = k.split(":")[0]; counts[pfx] = (counts[pfx] || 0) + 1; });
+  const out = { counts, errors: errors.length, items: Object.fromEntries(keys.map((k) => [k, items[k]])) };
+  fs.writeFileSync(outPath, JSON.stringify(out, null, 1) + "\n");
+  console.log(`スナップショット ${keys.length}項目 → ${outPath}`);
+  console.log("  内訳:", Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(" / "));
+  if (warns.size) {
+    console.log("  実行中の警告（件数。スナップショットの比較には影響しない）:");
+    [...warns].sort((a, b) => b[1] - a[1]).forEach(([m, n]) => console.log(`   ${String(n).padStart(4)}  ${m}`));
+  }
+  if (errors.length) {
+    console.log(`  描画・実行エラー ${errors.length}件:`);
+    errors.slice(0, 20).forEach((e) => console.log("   - " + e));
+  }
+}
+
+function snapshotDiff(aPath, bPath) {
+  const A = JSON.parse(fs.readFileSync(aPath, "utf8")).items;
+  const B = JSON.parse(fs.readFileSync(bPath, "utf8")).items;
+  const keys = [...new Set([...Object.keys(A), ...Object.keys(B)])].sort();
+  const added = [], removed = [], changed = [];
+  for (const k of keys) {
+    if (!(k in A)) added.push(k);
+    else if (!(k in B)) removed.push(k);
+    else if (JSON.stringify(A[k]) !== JSON.stringify(B[k])) changed.push(k);
+  }
+  // 値で記録した項目は、どこが違うかを1か所だけ示す
+  const where = (a, b) => {
+    if (Array.isArray(a) && Array.isArray(b)) {
+      const i = a.findIndex((x, j) => JSON.stringify(x) !== JSON.stringify(b[j]));
+      return i < 0 ? `長さ ${a.length}→${b.length}` : `[${i}] ${JSON.stringify(a[i]).slice(0, 80)} → ${JSON.stringify(b[i]).slice(0, 80)}`;
+    }
+    if (a && b && typeof a === "object" && typeof b === "object") {
+      const k = [...new Set([...Object.keys(a), ...Object.keys(b)])].find((x) => JSON.stringify(a[x]) !== JSON.stringify(b[x]));
+      return `.${k}: ${JSON.stringify(a[k]).slice(0, 80)} → ${JSON.stringify(b[k]).slice(0, 80)}`;
+    }
+    return typeof a === "string" && a.length === 64 ? "描画が変わった" : `${JSON.stringify(a).slice(0, 80)} → ${JSON.stringify(b).slice(0, 80)}`;
+  };
+  const total = added.length + removed.length + changed.length;
+  console.log(`比較 ${keys.length}項目: 変更 ${changed.length} / 追加 ${added.length} / 削除 ${removed.length}`);
+  if (changed.length) {
+    const by = {};
+    changed.forEach((k) => { const p = k.split(":")[0]; by[p] = (by[p] || 0) + 1; });
+    console.log("  変更の内訳:", Object.entries(by).map(([k, v]) => `${k} ${v}`).join(" / "));
+    changed.slice(0, 40).forEach((k) => console.log(`   ~ ${k}  ${where(A[k], B[k])}`));
+    if (changed.length > 40) console.log(`   …ほか ${changed.length - 40}件`);
+  }
+  added.slice(0, 20).forEach((k) => console.log(`   + ${k}`));
+  removed.slice(0, 20).forEach((k) => console.log(`   - ${k}`));
+  console.log(total ? `\n差分あり（${total}件）` : "\n差分なし");
+  if (total) process.exit(1);
+}
+
 async function main() {
   const args = process.argv.slice(2);
+  // 比較はバンドル不要なので先に分岐する
+  if (args[0] === "--snapshot-diff") {
+    if (args.length !== 3) { console.error("使い方: --snapshot-diff <a.json> <b.json>"); process.exit(2); }
+    snapshotDiff(args[1], args[2]);
+    return;
+  }
   const app = await loadApp();
+  if (args[0] === "--snapshot") {
+    if (!args[1]) { console.error("使い方: --snapshot <out.json>"); process.exit(2); }
+    await snapshot(app, args[1]);
+    return;
+  }
 
   if (args.length === 0 || args[0] === "--list") {
     console.log("使える名前:", Object.keys(app).join(", "));
