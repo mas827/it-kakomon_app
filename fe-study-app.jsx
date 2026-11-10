@@ -27,7 +27,7 @@ const SETS = ["2009年秋期", "2010年秋期", "2011年秋期", "2012年秋期"
 //    同一オリジンで公開していれば既存の暗記進捗がそのまま引き継がれる。
 const STORAGE_KEY = "fe-exam-srs-v1";
 const ABBR_STORAGE_KEY = "it-abbr-srs-v1";
-// 模試モード。過去問モードの学習履歴(STORAGE_KEY)とは完全に分離する。
+// 模試モード。採点時に既定の理解度で過去問モードの学習履歴(STORAGE_KEY)へ登録する（→ MockApp.submit）。
 // 進行中は1件だけ（中断再開用）。完了した模試は履歴として新しい順に残す。
 const MOCK_STORAGE_KEY = "fe-exam-mock-v1";
 const MOCK_PROGRESS_KEY = "fe-exam-mock-progress-v1";
@@ -133,7 +133,16 @@ function useCardStates(storageKey) {
     saveData(storageKey, {});
   }, [storageKey]);
 
-  return [states, update, reset];
+  // id→card を一括で置き換える（模試の採点・理解度の選び直し用。保存は1回）
+  const setCards = useCallback((cards) => {
+    setStates((prev) => {
+      const next = { ...prev, ...cards };
+      saveData(storageKey, next);
+      return next;
+    });
+  }, [storageKey]);
+
+  return [states, update, reset, setCards];
 }
 
 function shuffleArray(arr) {
@@ -393,19 +402,22 @@ export default function App() {
   const [abbrBusy, setAbbrBusy] = useState(false);
   const [mockBusy, setMockBusy] = useState(false);
   const busy = { quiz: quizBusy, abbr: abbrBusy, mock: mockBusy }[tab];
+  // 過去問の学習カードは過去問モードと模試（採点結果を復習に登録）で共有する。
+  // 片方が localStorage に直接書くと、もう片方のメモリ上の古い states で上書きされて消えるので、ここで1つだけ持つ
+  const [cardStates, updateCard, resetCards, setCards] = useCardStates(STORAGE_KEY);
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: sans, display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: 480, minHeight: "100vh", display: "flex", flexDirection: "column", position: "relative" }}>
         {/* 両モードとも状態を保持したままにするため、非表示で残す */}
         <div style={{ display: tab === "quiz" ? "flex" : "none", flexDirection: "column", flex: 1 }}>
-          <QuizApp onBusyChange={setQuizBusy} />
+          <QuizApp onBusyChange={setQuizBusy} states={cardStates} updateCard={updateCard} resetAll={resetCards} />
         </div>
         <div style={{ display: tab === "abbr" ? "flex" : "none", flexDirection: "column", flex: 1 }}>
           <AbbrApp onBusyChange={setAbbrBusy} />
         </div>
         <div style={{ display: tab === "mock" ? "flex" : "none", flexDirection: "column", flex: 1 }}>
-          <MockApp onBusyChange={setMockBusy} />
+          <MockApp onBusyChange={setMockBusy} cardStates={cardStates} setCards={setCards} />
         </div>
         {!busy && <TabBar tab={tab} onChange={setTab} />}
       </div>
@@ -454,9 +466,8 @@ function filterByCalc(qs, mode) {
   return qs;
 }
 
-function QuizApp({ onBusyChange }) {
+function QuizApp({ onBusyChange, states, updateCard, resetAll }) {
   const [screen, setScreen] = useState("home");
-  const [states, updateCard, resetAll] = useCardStates(STORAGE_KEY);
   const [sessionQs, setSessionQs] = useState([]);
   // スキップしたときの差し替え候補。新規の出題では「余った問題」が入り、
   // 今日の復習では空のまま。空かどうかでスキップの動きが決まる（→ SessionScreen）
@@ -2382,6 +2393,7 @@ function newMockProgress(runs) {
     ids: qs.map((q) => q.id),
     orders: qs.map((q) => makeChoiceOrder(q)),
     answers: qs.map(() => null),
+    flags: qs.map(() => false),     // 「あとで解く」の印
     hashes: qs.map((q) => choicesHash(q)),
     idx: 0,
   };
@@ -2398,6 +2410,8 @@ function hydrateProgress(p) {
   const orders = Array.isArray(p.orders) ? [...p.orders] : [];
   const answers = Array.isArray(p.answers) ? [...p.answers] : [];
   const hashes = Array.isArray(p.hashes) ? p.hashes : [];
+  // flags は後から足した項目。無い中断データ（旧版）は全問「印なし」で再開する
+  const flags = qs.map((_, i) => Array.isArray(p.flags) && p.flags[i] === true);
   let repaired = 0;
 
   qs.forEach((q, i) => {
@@ -2418,17 +2432,17 @@ function hydrateProgress(p) {
     v: 1,
     startedAt: p.startedAt || Date.now(),
     elapsedMs: Math.max(0, p.elapsedMs || 0),
-    ids: p.ids, orders, answers,
+    ids: p.ids, orders, answers, flags,
     hashes: qs.map((q) => choicesHash(q)),
     idx: Math.min(Math.max(0, p.idx | 0), qs.length - 1),
     qs, repaired,
   };
 }
 
-function saveProgress(p, answers, idx, elapsedMs) {
+function saveProgress(p, answers, flags, idx, elapsedMs) {
   return saveJSON(MOCK_PROGRESS_KEY, {
     v: 1, startedAt: p.startedAt, updatedAt: Date.now(), elapsedMs,
-    ids: p.ids, orders: p.orders, hashes: p.hashes, answers, idx,
+    ids: p.ids, orders: p.orders, hashes: p.hashes, answers, flags, idx,
   });
 }
 
@@ -2440,6 +2454,7 @@ function gradeMock(p, answers, elapsedMs) {
   const byCat = {};
   let correct = 0;
   let corrects = "";
+  let ratings = "";
   p.ids.forEach((id, i) => {
     const q = questionById(id);
     const cat = q ? q.category : "不明";
@@ -2448,12 +2463,13 @@ function gradeMock(p, answers, elapsedMs) {
     const ok = !!q && answers[i] === q.answer;
     if (ok) { cell[1]++; correct++; }
     corrects += ok ? "1" : "0";
+    ratings += !q ? "-" : ok ? "2" : "0";   // 既定の理解度: 正解→わかった／不正解・未回答→わからない
   });
   return {
     v: 1, runId: "m-" + p.startedAt,
     startedAt: p.startedAt, finishedAt: Date.now(), elapsedMs,
     total: p.ids.length, correct, byCat,
-    ids: p.ids, answers, hashes: p.hashes, corrects,
+    ids: p.ids, answers, hashes: p.hashes, corrects, ratings,
   };
 }
 
@@ -2485,8 +2501,10 @@ function bootMockProgress() {
   return { progress: h, notice: null };
 }
 
+const lastTs = (card) => (card && card.history.length ? card.history[card.history.length - 1].ts : null);
+
 // ===== 模試モードのルート =====
-function MockApp({ onBusyChange }) {
+function MockApp({ onBusyChange, cardStates, setCards }) {
   const [screen, setScreen] = useState("home");
   const [runs, setRuns] = useState(loadMockHistory);
   const [boot] = useState(bootMockProgress);
@@ -2497,16 +2515,20 @@ function MockApp({ onBusyChange }) {
   const [detail, setDetail] = useState(null);
   const [saveFailed, setSaveFailed] = useState(false);
   const [histFailed, setHistFailed] = useState(false);
+  // 採点直前の学習カード（メモリのみ）。理解度を選び直したときは、ここから作り直して置き換える
+  // （reviewCard を重ねると履歴が2回分積まれるため）。これが無い＝履歴から開いた過去の模試なので選び直せない
+  // written は模試が書いた履歴の ts。過去問モードで同じ問題を解き直した後は一致しなくなるので、上書きしない
+  const [snapshot, setSnapshot] = useState(null);   // { runId, cards: {id: card|null}, written: {id: ts} }
 
   useEffect(() => { onBusyChange(screen === "exam"); }, [screen, onBusyChange]);
 
   const progressRef = React.useRef(null);
   progressRef.current = progress;
 
-  const persist = useCallback(({ answers, idx, elapsedMs }) => {
+  const persist = useCallback(({ answers, flags, idx, elapsedMs }) => {
     const p = progressRef.current;
     if (!p) return;
-    setSaveFailed(!saveProgress(p, answers, idx, elapsedMs));
+    setSaveFailed(!saveProgress(p, answers, flags, idx, elapsedMs));
   }, []);
 
   const startNew = () => {
@@ -2528,11 +2550,11 @@ function MockApp({ onBusyChange }) {
     setSaveFailed(false);
   };
 
-  const suspend = ({ answers, idx, elapsedMs }) => {
+  const suspend = ({ answers, flags, idx, elapsedMs }) => {
     const p = progressRef.current;
     if (!p) { setScreen("home"); return; }
-    setSaveFailed(!saveProgress(p, answers, idx, elapsedMs));
-    setProgress({ ...p, answers, idx, elapsedMs, repaired: 0 });
+    setSaveFailed(!saveProgress(p, answers, flags, idx, elapsedMs));
+    setProgress({ ...p, answers, flags, idx, elapsedMs, repaired: 0 });
     setScreen("home");
   };
 
@@ -2540,7 +2562,27 @@ function MockApp({ onBusyChange }) {
     const p = progressRef.current;
     if (!p) { setScreen("home"); return; }
     const run = gradeMock(p, answers, elapsedMs);
-    let list = [run, ...runs].slice(0, MOCK_HISTORY_MAX);
+    // 既定の理解度で過去問モードの復習に登録する
+    const before = {}, cards = {}, written = {};
+    run.ids.forEach((id, i) => {
+      if (run.ratings[i] === "-") return;     // 削除済みの問題
+      before[id] = cardStates[id] || null;
+      cards[id] = reviewCard(before[id] || initCard(), Number(run.ratings[i]), run.corrects[i] === "1");
+      written[id] = lastTs(cards[id]);
+    });
+    setCards(cards);
+    setSnapshot({ runId: run.runId, cards: before, written });
+    persistRuns([run, ...runs]);
+    localStorage.removeItem(MOCK_PROGRESS_KEY);
+    setProgress(null);
+    setSaveFailed(false);
+    setCurrent(run);
+    setScoreFrom("home");
+    setScreen("score");
+  };
+
+  function persistRuns(all) {
+    let list = all.slice(0, MOCK_HISTORY_MAX);
     let ok = saveMockHistory(list);
     while (!ok && list.length > 1) {          // 容量オーバー → 古いものから捨ててリトライ
       list = list.slice(0, list.length - 1);
@@ -2548,12 +2590,24 @@ function MockApp({ onBusyChange }) {
     }
     setHistFailed(!ok);
     setRuns(list);
-    localStorage.removeItem(MOCK_PROGRESS_KEY);
-    setProgress(null);
-    setSaveFailed(false);
-    setCurrent(run);
-    setScoreFrom("home");
-    setScreen("score");
+  }
+
+  // 理解度の選び直し。採点直後の結果画面（snapshot がこの回のもの）でだけ渡す
+  const canRate = !!(snapshot && current && snapshot.runId === current.runId);
+  const rate = (i, r) => {
+    const run = current;
+    const id = run.ids[i];
+    if (!canRate || !(id in snapshot.cards) || run.ratings[i] === String(r)) return;
+    if (lastTs(cardStates[id]) !== snapshot.written[id]) {
+      window.alert("この問題は模試のあとに過去問モードで解いているため、理解度は変更できません");
+      return;
+    }
+    const card = reviewCard(snapshot.cards[id] || initCard(), r, run.corrects[i] === "1");
+    setCards({ [id]: card });
+    setSnapshot({ ...snapshot, written: { ...snapshot.written, [id]: lastTs(card) } });
+    const next = { ...run, ratings: run.ratings.slice(0, i) + r + run.ratings.slice(i + 1) };
+    setCurrent(next);
+    persistRuns(runs.map((x) => (x.runId === next.runId ? next : x)));
   };
 
   const openRun = (run) => { setCurrent(run); setScoreFrom("history"); setScreen("score"); };
@@ -2565,8 +2619,15 @@ function MockApp({ onBusyChange }) {
     // 選択肢が後から修正されていたら、保存してある解答番号は別の選択肢を指している可能性が
     // あるのでハイライトしない（§修正済みバッジ）
     const edited = run.hashes && run.hashes[i] !== choicesHash(q);
-    setDetail({ q, selected: edited ? null : run.answers[i] });
+    setDetail({ i, q, selected: edited ? null : run.answers[i] });
     setScreen("detail");
+  };
+
+  // 詳細画面の前後移動。削除済みの問題は飛ばす
+  const stepDetail = (dir) => {
+    for (let j = detail.i + dir; j >= 0 && j < current.ids.length; j += dir) {
+      if (questionById(current.ids[j])) { openDetail(j); return; }
+    }
   };
 
   return (
@@ -2593,15 +2654,23 @@ function MockApp({ onBusyChange }) {
         <div style={{ display: screen === "score" ? "flex" : "none", flexDirection: "column", flex: 1 }}>
           <MockScore
             run={current} isFresh={scoreFrom === "home"} histFailed={histFailed}
+            onRate={canRate ? rate : null}
             onOpen={openDetail} onBack={() => setScreen(scoreFrom)}
           />
         </div>
       )}
-      {screen === "detail" && detail && (
-        <QuestionDetail
-          key={detail.q.id} q={detail.q} selected={detail.selected}
-          revealStart={true} onBack={() => setScreen("score")}
-        />
+      {screen === "detail" && detail && current && (
+        <MockDetail
+          key={detail.i} i={detail.i} total={current.ids.length}
+          rating={current.ratings ? current.ratings[detail.i] : undefined}
+          onRate={canRate ? (r) => rate(detail.i, r) : null}
+          onStep={stepDetail}
+        >
+          <QuestionDetail
+            key={detail.q.id} q={detail.q} selected={detail.selected}
+            revealStart={true} onBack={() => setScreen("score")}
+          />
+        </MockDetail>
       )}
     </>
   );
@@ -2618,7 +2687,7 @@ function MockHome({ progress, runs, notice, saveFailed, onStart, onResume, onDis
         <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800 }}>模試</h1>
         <p style={{ margin: "6px 0 0", fontSize: 13, color: C.dim, lineHeight: 1.7 }}>
           過去問から本番の分野配分どおりに{MOCK_TOTAL}問を抽選し、通しで解きます。<br />
-          採点は最後にまとめて。学習履歴（過去問モード）には影響しません。
+          採点は最後にまとめて。結果は過去問モードの復習に登録されます（理解度は結果画面で選び直せます）。
         </p>
       </div>
 
@@ -2708,6 +2777,7 @@ function MockExamScreen({ init, saveFailed, onPersist, onSuspend, onSubmit }) {
   const [palette, setPalette] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [repairNotice, setRepairNotice] = useState(init.repaired > 0);
+  const [flags, setFlags] = useState(init.flags);     // 「あとで解く」の印
 
   const ms = useTimer(true, init.startedAt, true);
   const totalMs = init.elapsedMs + ms;
@@ -2717,14 +2787,14 @@ function MockExamScreen({ init, saveFailed, onPersist, onSuspend, onSubmit }) {
   const bodyRef = React.useRef(null);
   useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [idx]);
 
-  const liveRef = React.useRef({ answers, idx });
-  liveRef.current = { answers, idx };
+  const liveRef = React.useRef({ answers, flags, idx });
+  liveRef.current = { answers, flags, idx };
 
   // 保存トリガは「解答」「移動」「60秒ごと」「非表示化」「離脱」だけ。
   // タイマー更新（250ms）では保存しない（setItem は同期I/O）。
   const persistNow = useCallback(() => {
     const l = liveRef.current;
-    onPersist({ answers: l.answers, idx: l.idx, elapsedMs: init.elapsedMs + msRef.current });
+    onPersist({ answers: l.answers, flags: l.flags, idx: l.idx, elapsedMs: init.elapsedMs + msRef.current });
   }, [onPersist, init.elapsedMs]);
 
   useEffect(() => {
@@ -2739,15 +2809,17 @@ function MockExamScreen({ init, saveFailed, onPersist, onSuspend, onSubmit }) {
     };
   }, [persistNow]);
 
-  const commit = (nextAnswers, nextIdx) => {
+  const commit = (nextAnswers, nextIdx, nextFlags = flags) => {
     setAnswers(nextAnswers);
     setIdx(nextIdx);
-    onPersist({ answers: nextAnswers, idx: nextIdx, elapsedMs: init.elapsedMs + msRef.current });
+    setFlags(nextFlags);
+    onPersist({ answers: nextAnswers, flags: nextFlags, idx: nextIdx, elapsedMs: init.elapsedMs + msRef.current });
   };
 
   const q = qs[idx];
   const answeredCount = answers.filter((a) => a != null).length;
-  const unanswered = answers.reduce((acc, a, i) => (a == null ? [...acc, i + 1] : acc), []);
+  const unanswered = answers.reduce((acc, a, i) => (a == null ? [...acc, i] : acc), []);
+  const flagged = flags.reduce((acc, f, i) => (f ? [...acc, i] : acc), []);
 
   const select = (origIdx) => {
     const next = [...answers];
@@ -2760,9 +2832,17 @@ function MockExamScreen({ init, saveFailed, onPersist, onSuspend, onSubmit }) {
     if (next !== idx) commit(answers, next);
   };
 
+  // 印を付けたら次の問題へ進む（最終問は印だけ）。印を外すときは移動しない。
+  // 選択肢を選んでも印は外さない（「答えたが見直したい」にも使えるように）
+  const toggleFlag = () => {
+    const next = [...flags];
+    next[idx] = !flags[idx];
+    commit(answers, next[idx] ? Math.min(idx + 1, qs.length - 1) : idx, next);
+  };
+
   const quit = () => {
     if (!window.confirm("模試を中断します。あとで再開できます。よろしいですか？")) return;
-    onSuspend({ answers, idx, elapsedMs: init.elapsedMs + msRef.current });
+    onSuspend({ answers, flags, idx, elapsedMs: init.elapsedMs + msRef.current });
   };
 
   return (
@@ -2830,6 +2910,10 @@ function MockExamScreen({ init, saveFailed, onPersist, onSuspend, onSubmit }) {
           style={{ padding: "12px 18px", borderRadius: 10, border: `1px solid ${C.border}`, background: "transparent", color: idx === 0 ? C.faint : C.text, fontSize: 14, fontFamily: sans, cursor: idx === 0 ? "default" : "pointer" }}>
           ← 前へ
         </button>
+        <button onClick={toggleFlag}
+          style={{ padding: "12px 12px", borderRadius: 10, border: `1px solid ${flags[idx] ? C.amber : C.border}`, background: flags[idx] ? `${C.amber}1a` : "transparent", color: flags[idx] ? C.amber : C.dim, fontSize: 13, fontFamily: sans, cursor: "pointer", whiteSpace: "nowrap" }}>
+          {flags[idx] ? "🔖 印を外す" : "🔖 あとで"}
+        </button>
         {idx < qs.length - 1 ? (
           <button onClick={() => go(idx + 1)}
             style={{ flex: 1, padding: 12, borderRadius: 10, border: "none", background: C.blue, color: "#0d1117", fontSize: 15, fontWeight: 700, fontFamily: sans, cursor: "pointer" }}>
@@ -2848,17 +2932,19 @@ function MockExamScreen({ init, saveFailed, onPersist, onSuspend, onSubmit }) {
           <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>解答状況</div>
           <div style={{ fontSize: 12, color: C.dim, fontFamily: mono, marginBottom: 12 }}>
             回答済み {answeredCount} / 未回答 {qs.length - answeredCount}
+            {flagged.length > 0 && <span style={{ color: C.amber }}> / 🔖あとで {flagged.length}</span>}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 6, marginBottom: 16 }}>
             {qs.map((_, i) => {
-              const cur = i === idx, ans = answers[i] != null;
+              const cur = i === idx, ans = answers[i] != null, fl = flags[i];
               return (
                 <button key={i} onClick={() => { go(i); setPalette(false); }}
-                  style={{ aspectRatio: "1", borderRadius: 6, fontFamily: mono, fontSize: 11, cursor: "pointer",
+                  style={{ position: "relative", aspectRatio: "1", borderRadius: 6, fontFamily: mono, fontSize: 11, cursor: "pointer",
                     background: ans ? `${C.blue}33` : C.bg,
-                    border: `1.5px solid ${cur ? C.accent : ans ? C.blue + "88" : C.border}`,
+                    border: `1.5px solid ${cur ? C.accent : fl ? C.amber : ans ? C.blue + "88" : C.border}`,
                     color: ans ? C.text : C.faint, fontWeight: cur ? 700 : 400, padding: 0 }}>
                   {i + 1}
+                  {fl && <span style={{ position: "absolute", top: -5, right: -3, fontSize: 9 }}>🔖</span>}
                 </button>
               );
             })}
@@ -2873,11 +2959,15 @@ function MockExamScreen({ init, saveFailed, onPersist, onSuspend, onSubmit }) {
       {confirm && (
         <MockSheet onClose={() => setConfirm(false)}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>採点しますか？</div>
-          <div style={{ fontSize: 13, color: C.dim, lineHeight: 1.7, marginBottom: 16 }}>
+          <div style={{ fontSize: 13, color: C.dim, lineHeight: 1.7, marginBottom: 12 }}>
             {unanswered.length > 0
-              ? <>未回答が <span style={{ color: C.amber, fontFamily: mono, fontWeight: 700 }}>{unanswered.length}問</span> あります（問 {unanswered.slice(0, 12).join(", ")}{unanswered.length > 12 ? " …" : ""}）。<br />未回答は不正解として集計されます。</>
+              ? <>未回答が <span style={{ color: C.amber, fontFamily: mono, fontWeight: 700 }}>{unanswered.length}問</span> あります。未回答は不正解として集計されます。</>
               : <>全{qs.length}問に解答済みです。</>}
           </div>
+          <MockJumpList title="未回答" color={C.amber} items={unanswered} qs={qs} answers={answers}
+            onJump={(i) => { go(i); setConfirm(false); }} />
+          <MockJumpList title="🔖 あとで解く" color={C.amber} items={flagged} qs={qs} answers={answers}
+            onJump={(i) => { go(i); setConfirm(false); }} />
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={() => setConfirm(false)}
               style={{ padding: "12px 18px", borderRadius: 10, border: `1px solid ${C.border}`, background: "transparent", color: C.dim, fontSize: 14, fontFamily: sans, cursor: "pointer" }}>
@@ -2890,6 +2980,27 @@ function MockExamScreen({ init, saveFailed, onPersist, onSuspend, onSubmit }) {
           </div>
         </MockSheet>
       )}
+    </div>
+  );
+}
+
+// 採点前の確認シートに出す問題の一覧（タップでその問題へ）。中身は questions.json から引くだけで保存しない
+function MockJumpList({ title, color, items, qs, answers, onJump }) {
+  if (items.length === 0) return null;
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color, marginBottom: 6 }}>{title}（{items.length}問）</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {items.map((i) => (
+          <button key={i} onClick={() => onJump(i)}
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: C.bg, border: `1px solid ${C.border}`, textAlign: "left", fontFamily: sans, cursor: "pointer", width: "100%" }}>
+            <span style={{ fontFamily: mono, fontSize: 12, color: C.dim, minWidth: 34 }}>問{i + 1}</span>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{plainPreview(qs[i].question)}</span>
+            {answers[i] == null && <span style={{ fontSize: 10, color: C.amber }}>未回答</span>}
+            <span style={{ fontSize: 16, color: C.faint }}>›</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -2908,7 +3019,35 @@ function MockSheet({ onClose, children }) {
 }
 
 // ===== 模試の結果（実施直後と履歴の両方で使う） =====
-function MockScore({ run, isFresh, histFailed, onOpen, onBack }) {
+// 理解度（過去問モードの RateBtn と同じ 0/1/2）
+const MOCK_RATES = [
+  { r: 0, emoji: "😓", label: "わからない", color: C.red },
+  { r: 1, emoji: "🤔", label: "迷った", color: C.amber },
+  { r: 2, emoji: "😊", label: "わかった", color: C.accent },
+];
+
+// onRate が無い（履歴から開いた過去の模試）ときは、登録した理解度を表示するだけ
+function MockRateChips({ rating, onRate, big }) {
+  if (rating == null || rating === "-") return null;
+  const opts = onRate ? MOCK_RATES : MOCK_RATES.filter((o) => String(o.r) === rating);
+  return (
+    <div style={{ display: "flex", gap: 6 }}>
+      {opts.map((o) => {
+        const on = String(o.r) === rating;
+        return (
+          <button key={o.r} onClick={onRate ? (e) => { e.stopPropagation(); onRate(o.r); } : undefined}
+            style={{ flex: big ? 1 : "none", padding: big ? "10px 6px" : "4px 9px", borderRadius: 8, fontFamily: sans, fontSize: big ? 13 : 11,
+              background: on ? `${o.color}22` : "transparent", border: `1px solid ${on ? o.color : C.border}`,
+              color: on ? o.color : C.faint, fontWeight: on ? 700 : 400, cursor: onRate ? "pointer" : "default" }}>
+            {o.emoji} {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function MockScore({ run, isFresh, histFailed, onRate, onOpen, onBack }) {
   const rate = run.total ? Math.round((run.correct / run.total) * 100) : 0;
   const col = rateColor(rate);
   const message = rate >= 80 ? "合格ラインを大きく超えています"
@@ -2952,6 +3091,13 @@ function MockScore({ run, isFresh, histFailed, onOpen, onBack }) {
       </Section>
 
       <Section title="問題別レビュー（タップで詳細）">
+        {run.ratings && (
+          <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.6, marginBottom: 10 }}>
+            {onRate
+              ? "この結果は過去問モードの復習に登録しました（正解→わかった／不正解→わからない）。理解度はここで選び直せます。"
+              : "この模試の結果は、下の理解度で過去問モードの復習に登録済みです。"}
+          </div>
+        )}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {run.ids.map((id, i) => {
             const q = questionById(id);
@@ -2967,8 +3113,9 @@ function MockScore({ run, isFresh, histFailed, onOpen, onBack }) {
             }
             const edited = run.hashes && run.hashes[i] !== choicesHash(q);
             return (
-              <button key={i} onClick={() => onOpen(i)}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, background: C.panel, border: `1px solid ${ok ? C.border : C.red + "44"}`, textAlign: "left", fontFamily: sans, cursor: "pointer", width: "100%" }}>
+              <div key={i} style={{ borderRadius: 10, background: C.panel, border: `1px solid ${ok ? C.border : C.red + "44"}` }}>
+              <button onClick={() => onOpen(i)}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10, background: "transparent", border: "none", textAlign: "left", fontFamily: sans, cursor: "pointer", width: "100%" }}>
                 <span style={{ fontFamily: mono, fontSize: 16, color: ok ? C.accent : C.red, fontWeight: 700, minWidth: 16 }}>{ok ? "✓" : "✗"}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{plainPreview(q.question)}</div>
@@ -2980,6 +3127,12 @@ function MockScore({ run, isFresh, histFailed, onOpen, onBack }) {
                 </div>
                 <span style={{ fontSize: 18, color: C.faint }}>›</span>
               </button>
+              {run.ratings && (
+                <div style={{ padding: "0 14px 10px 40px" }}>
+                  <MockRateChips rating={run.ratings[i]} onRate={onRate ? (r) => onRate(i, r) : null} />
+                </div>
+              )}
+              </div>
             );
           })}
         </div>
@@ -2989,6 +3142,38 @@ function MockScore({ run, isFresh, histFailed, onOpen, onBack }) {
         style={{ width: "100%", padding: 16, borderRadius: 14, border: "none", fontSize: 16, fontWeight: 700, fontFamily: sans, cursor: "pointer", background: `linear-gradient(135deg,${C.accentDim},#238636)`, color: "#fff" }}>
         {isFresh ? "模試ホームに戻る" : "履歴に戻る"}
       </button>
+    </div>
+  );
+}
+
+// 結果画面から開いた問題詳細。左右スワイプ／下部ボタンで前後の問題へ、理解度もここで選べる。
+// QuestionDetail は他の画面と共用なので手を入れず、外側で包む
+function MockDetail({ i, total, rating, onRate, onStep, children }) {
+  const start = React.useRef(null);
+  useEffect(() => { window.scrollTo(0, 0); }, [i]);
+  const onTouchStart = (e) => { const t = e.touches[0]; start.current = { x: t.clientX, y: t.clientY }; };
+  const onTouchEnd = (e) => {
+    const s0 = start.current;
+    start.current = null;
+    if (!s0) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s0.x, dy = t.clientY - s0.y;
+    // 縦スクロールや表の横スクロールを拾わないよう、はっきり横に払ったときだけ
+    if (Math.abs(dx) > 60 && Math.abs(dx) > 1.5 * Math.abs(dy)) onStep(dx < 0 ? 1 : -1);
+  };
+  const navBtn = (disabled) => ({ padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "transparent",
+    color: disabled ? C.faint : C.text, fontSize: 13, fontFamily: sans, cursor: disabled ? "default" : "pointer" });
+  return (
+    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+      {children}
+      <div style={{ position: "sticky", bottom: 0, padding: "10px 20px", paddingBottom: "calc(10px + env(safe-area-inset-bottom))", borderTop: `1px solid ${C.border}`, background: C.panel, display: "flex", flexDirection: "column", gap: 10 }}>
+        {rating != null && rating !== "-" && <MockRateChips rating={rating} onRate={onRate} big />}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={() => onStep(-1)} disabled={i === 0} style={navBtn(i === 0)}>← 前の問題</button>
+          <span style={{ flex: 1, textAlign: "center", fontFamily: mono, fontSize: 12, color: C.dim }}>{i + 1}/{total}</span>
+          <button onClick={() => onStep(1)} disabled={i === total - 1} style={navBtn(i === total - 1)}>次の問題 →</button>
+        </div>
+      </div>
     </div>
   );
 }
