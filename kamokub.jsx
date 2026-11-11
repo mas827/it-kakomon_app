@@ -1,5 +1,5 @@
 // ===== 科目B（擬似言語・情報セキュリティ）モード =====
-// default export の KamokuBApp を、本体のタブ（fe-study-app.jsx）か単体確認用の入口（subject-b/app.jsx）が描く。
+// default export の KamokuBApp を、本体の下部タブ「📘 科目B」（fe-study-app.jsx）が描く。
 // テーマ・永続化・SRS・RichText・小物は ui-common.jsx のものを使う。ここには科目Bに固有のものだけを置く。
 import React, { useState, useEffect, useMemo, useCallback, useRef, useReducer } from "react";
 import {
