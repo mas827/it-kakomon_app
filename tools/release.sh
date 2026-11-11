@@ -26,6 +26,8 @@ runtime_files() {
 backup_files() {
   echo fe-study-app.jsx ui-common.jsx package.json package-lock.json | tr ' ' '\n'
   echo data/questions.json data/abbr.json data/calc_ids.json data/answer_keys.json | tr ' ' '\n'
+  # 科目B（本体の4つ目のタブ）
+  echo kamokub.jsx data/kamokub.json data/kamokub_programs.json data/kamokub_answer_keys.json | tr ' ' '\n'
   # 保守スクリプト。失うと検証・リリースの仕組みを作り直すことになる。
   # tools/ocr は ocr.swift からビルドする成果物（arm64バイナリ）なので含めない
   #   → swiftc -O tools/ocr.swift -o tools/ocr
@@ -53,9 +55,12 @@ list_changed() {
   done
 }
 
-sw_matches_github() {
-  r=$(git rev-parse -q --verify "origin/main:sw.js" 2>/dev/null) || return 1
-  [ "$r" = "$(git hash-object sw.js)" ]
+# GitHub上の sw.js と「版番号」が同じか。中身の一致では見ない
+# （図を足すと sync_sw_images.py が IMAGES を書き換えるので、版を上げる前から中身は GitHub と違う。
+#   中身で比べると「前回の版が未アップロード」と誤判定して据え置き、利用者の端末に更新が届かなくなる）
+sw_version_matches_github() {
+  gh=$(git show "origin/main:sw.js" 2>/dev/null | grep -oE "fe-exam-v[0-9]+" | head -1)
+  [ -n "$gh" ] && [ "$gh" = "$(grep -oE "fe-exam-v[0-9]+" sw.js | head -1)" ]
 }
 
 echo "== sw.js の画像リストを同期 =="
@@ -80,8 +85,8 @@ echo "== sw.js キャッシュ版 =="
 cur=$(grep -oE "fe-exam-v[0-9]+" sw.js | head -1)
 if [ -z "$changed" ]; then
   echo "  ${cur} のまま（ブラウザが読むファイルに変更なし）"
-elif ! sw_matches_github; then
-  echo "  ${cur} のまま（前回のぶんが未アップロードなので据え置き）"
+elif ! sw_version_matches_github; then
+  echo "  ${cur} のまま（GitHub上より新しい版が未アップロードなので据え置き）"
 else
   n=${cur#fe-exam-v}
   new="fe-exam-v$((n + 1))"

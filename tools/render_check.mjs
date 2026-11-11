@@ -65,6 +65,8 @@ async function loadApp(entry = ENTRY, exportsList = null) {
     "initCard", "reviewCard", "loadData", "saveData", "histCorrect", "fmtMs",
     "makeChoiceOrder", "isSymbolOnlyChoices", "getExplanationSummary", "remapLabels", "plainPreview",
     "abbrSimilarity", "mockNormKey", "mockPool", "newMockProgress", "gradeMock",
+    // --behavior 用（バックアップ）
+    "BackupRestore", "buildBackup",
   ];
   if (exportsList) EXPORTS.splice(0, EXPORTS.length, ...exportsList);
   const result = await build({
@@ -275,6 +277,40 @@ async function behavior(app) {
   check(lists.find((l) => l.title === "未回答").items.length === 5, "採点前の一覧に未回答の問題が並ぶ");
   flaggedList.onJump(0); ex.rerender();
   check(persisted[persisted.length - 1].idx === 0, "一覧をタップするとその問題へ移動する");
+
+  // --- バックアップ：科目Bの3キーが入る／v1（科目B統合前）のファイルも読める ---
+  // キー名は文字列で書く（アプリ側の定数を使うと、キー名を書き換えても検査が素通りする）
+  const A_KEYS = ["fe-exam-srs-v1", "it-abbr-srs-v1", "fe-exam-mock-v1"];
+  const B_KEYS = ["fe-exam-b-srs-v1", "fe-exam-b-trace-v1", "fe-exam-b-prefs-v1"];
+  const card = { history: [], interval: 1, easeFactor: 2.5, dueDate: "2026-01-15", reps: 1, lapses: 0 };
+  const fill = (tag) => ({
+    "fe-exam-srs-v1": { [`2013A-0${tag}`]: card }, "it-abbr-srs-v1": { [`A-${tag}`]: card, [`A-${tag}0`]: card },
+    "fe-exam-mock-v1": { v: 1, runs: [{ tag }] },
+    "fe-exam-b-srs-v1": { [`B-R05-0${tag}`]: card, [`B-R06-0${tag}`]: card, [`B-R07-0${tag}`]: card },
+    "fe-exam-b-trace-v1": { [`B-R05-0${tag}`]: { ms: Number(tag) } }, "fe-exam-b-prefs-v1": { timer: false, split: 0.5 },
+  });
+  const setAll = (o) => { for (const k of Object.keys(store)) delete store[k]; for (const [k, v] of Object.entries(o)) store[k] = JSON.stringify(v); };
+  const snapAll = () => JSON.stringify(Object.fromEntries([...A_KEYS, ...B_KEYS].map((k) => [k, store[k] ?? null])));
+  setAll(fill("1"));
+  const bk = app.buildBackup();
+  check(bk.version === 2, "バックアップの version は 2");
+  check([...A_KEYS, ...B_KEYS].every((k) => JSON.stringify(bk.stores[k]) === store[k]), "バックアップに科目Bの3キー（学習カード・記録・設定）と既存3キーが入る");
+  const confirms = [];
+  global.window.confirm = (m) => { confirms.push(m); return true; };
+  global.window.location = { reload() {} };
+  const restore = async (data) => {
+    const br = mount(React, app.BackupRestore, {});
+    let input = null;
+    walk(br.tree, (n) => { if (n.type === "input" && n.props.type === "file") input = n; });
+    await input.props.onChange({ target: { value: "x", files: [{ text: async () => JSON.stringify(data) }] } });
+  };
+  setAll({}); await restore(bk);
+  check(snapAll() === JSON.stringify(Object.fromEntries([...A_KEYS, ...B_KEYS].map((k) => [k, JSON.stringify(bk.stores[k])]))), "v2 の復元で6キーすべてが戻る");
+  check(confirms[confirms.length - 1].includes("6件の学習履歴と模試1回分"), "復元の確認に科目Bのカードも件数に入る（過去問1＋英略語2＋科目B3）");
+  const v1 = { app: bk.app, version: 1, exportedAt: "2026-01-01T00:00:00.000Z", stores: Object.fromEntries(A_KEYS.map((k) => [k, fill("2")[k]])) };
+  setAll(fill("3")); await restore(v1);
+  check(A_KEYS.every((k) => store[k] === JSON.stringify(fill("2")[k])), "v1（科目B統合前）のファイルを復元すると既存3キーが戻る");
+  check(B_KEYS.every((k) => store[k] === JSON.stringify(fill("3")[k])), "v1 のファイルを復元しても科目Bの学習データは消えない");
 
   console.log(fails ? `\n${fails}件失敗` : "\nすべてOK");
   if (fails) process.exit(1);
@@ -550,8 +586,8 @@ const KAMOKUB_EXPORTS = [
 ];
 
 async function snapshotB(app, outPath) {
-  const QS = require(path.join(ROOT, "subject-b", "data", "kamokub.json"));
-  const PG = require(path.join(ROOT, "subject-b", "data", "kamokub_programs.json"));
+  const QS = require(path.join(ROOT, "data", "kamokub.json"));
+  const PG = require(path.join(ROOT, "data", "kamokub_programs.json"));
   const det = installDeterminism();
   const items = {}, errors = [];
   const noop = () => {};
@@ -666,7 +702,7 @@ async function main() {
     // 科目Bの出題画面を「解答済み・解説を展開」で1問ずつ描く（--snapshot-b の差分の中身を見るため）
     // node tools/render_check.mjs --b-session B-R05-01 [ok|ng]
     const appB = await loadApp(KAMOKUB_ENTRY, KAMOKUB_EXPORTS);
-    const QS = require(path.join(ROOT, "subject-b", "data", "kamokub.json"));
+    const QS = require(path.join(ROOT, "data", "kamokub.json"));
     const q = QS.find((x) => x.id === args[1]);
     if (!q) { console.error(`# ${args[1]}: 見つかりません`); return; }
     const ok = args[2] !== "ng";

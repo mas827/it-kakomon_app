@@ -170,6 +170,10 @@ def main():
 
     # 孤児画像
     refs = {q["image"].split("/")[-1] for q in D if q.get("image")}
+    # 科目Bの図（data/kamokub.json の figures）も同じ images/ に置く。中身の検査は validate_b.py
+    kb = os.path.join(ROOT, "data", "kamokub.json")
+    if os.path.exists(kb):
+        refs |= {f["file"].split("/")[-1] for q in json.load(open(kb, encoding="utf-8")) for f in q.get("figures", [])}
     orphans = sorted(f for f in os.listdir(IMGDIR)
                      if f.endswith(".png") and f not in refs)
     if orphans:
