@@ -17,6 +17,11 @@
 //        固定するので、同じコードなら何度採っても1バイトも変わらない
 //   node tools/render_check.mjs --snapshot-diff <a.json> <b.json>
 //        2つのスナップショットを比べ、差のあった項目を一覧する。差があれば exit 1
+//   node tools/render_check.mjs --b-session <科目Bのid> [ok|ng]  科目Bの出題画面を解答済み・解説を展開して描く
+//        （--snapshot-b で差が出たときに、どこが違うかを生のHTMLで見るため）
+//   node tools/render_check.mjs --snapshot-b <out.json>  科目B（44問）の全件スナップショット
+//        詳細画面・出題画面（未回答の問題文／プログラム／解答欄、正解・不正解で解説を開いた状態）・
+//        主要画面と、トレース表の状態遷移などの純関数を記録する。比較は --snapshot-diff で行う
 //   node tools/render_check.mjs --list                   使える主要コンポーネント名を表示
 //
 // 出力は生のHTML（stdout）。grepや文字列includesで確認する。例:
@@ -47,7 +52,7 @@ function stripMount(code) {
     .join("\n");
 }
 
-async function loadApp() {
+async function loadApp(entry = ENTRY, exportsList = null) {
   const EXPORTS = [
     "QuestionDetail", "QuestionList", "ResultScreen", "HomeScreen", "QuizApp",
     "AbbrQuizScreen", "AbbrHome", "AbbrList", "buildAbbrChoices",
@@ -61,15 +66,18 @@ async function loadApp() {
     "makeChoiceOrder", "isSymbolOnlyChoices", "getExplanationSummary", "remapLabels", "plainPreview",
     "abbrSimilarity", "mockNormKey", "mockPool", "newMockProgress", "gradeMock",
   ];
+  if (exportsList) EXPORTS.splice(0, EXPORTS.length, ...exportsList);
   const result = await build({
-    entryPoints: [ENTRY],
+    entryPoints: [entry],
     bundle: true,
     platform: "node",
     format: "cjs",
     write: false,
     logLevel: "silent",
     external: ["react", "react-dom", "react-dom/client"],
-    footer: { js: `module.exports.__rc = {${EXPORTS.join(",")}};` },
+    // 「?名前」は無くてもよい名前。バンドルに無ければ undefined を入れる
+    footer: { js: `module.exports.__rc = {${EXPORTS.map((n) => n.startsWith("?")
+      ? `${n.slice(1)}: typeof ${n.slice(1)} === "undefined" ? undefined : ${n.slice(1)}` : n).join(",")}};` },
   });
   const code = stripMount(result.outputFiles[0].text);
   const mod = { exports: {} };
@@ -83,7 +91,7 @@ async function loadApp() {
   }
   const rc = mod.exports.__rc;
   // 黙って undefined のまま進まないよう、全部そろっているかを先に確かめる
-  const missing = EXPORTS.filter((n) => rc[n] === undefined);
+  const missing = EXPORTS.filter((n) => !n.startsWith("?") && rc[n] === undefined);
   if (missing.length) throw new Error(`render_check: 見つからない名前: ${missing.join(", ")}`);
   return rc;
 }
@@ -530,12 +538,151 @@ function snapshotDiff(aPath, bPath) {
   if (total) process.exit(1);
 }
 
+// ===== --snapshot-b: 科目B（subject-b）の全件スナップショット =====
+// 入口は subject-b/app.jsx（Phase 2 以降は kamokub.jsx を取り込む薄い入口）。名前はバンドルの中から拾う。
+const KAMOKUB_ENTRY = path.join(ROOT, "subject-b", "app.jsx");
+const KAMOKUB_EXPORTS = [
+  "App", "BSession", "BDetail", "BList", "BStats", "BSetup", "BResult", "BHome", "Modal", "TraceTable",
+  // 科目Bの RichText は表を横スクロールで描く。載せ替え後は ui-common の RichText を包んだ BRichText。
+  // 載せ替え前のファイルには BRichText が無く、ファイル内の RichText がそれに当たる
+  "?BRichText", "RichText", "REF_TEXT", "plainPreview", "buildFilled", "expandColumns", "expectedRows",
+  "initTrace", "traceReducer", "countCorrections", "fmtMs", "statusOf",
+];
+
+async function snapshotB(app, outPath) {
+  const QS = require(path.join(ROOT, "subject-b", "data", "kamokub.json"));
+  const PG = require(path.join(ROOT, "subject-b", "data", "kamokub_programs.json"));
+  const det = installDeterminism();
+  const items = {}, errors = [];
+  const noop = () => {};
+  const sha = (str) => createHash("sha256").update(str).digest("hex");
+  const h = React.createElement;
+  const realConsole = { warn: console.warn, error: console.error };
+  const warns = new Map();
+  const tally = (...a) => { const m = String(a[0]).split("\n")[0].replace(/"[^"]*"/g, '"…"').slice(0, 90); warns.set(m, (warns.get(m) || 0) + 1); };
+  console.warn = tally; console.error = tally;
+  const guard = (key, f) => {
+    try { items[key] = f(); } catch (e) { items[key] = `!error: ${e.message}`; errors.push(`${key}: ${e.message}`); }
+  };
+  const html = (key, el, storage) => guard(key, () => { det.reset(key, storage); return sha(render(el)); });
+  const val = (key, f) => guard(key, () => { det.reset(key); return f(); });
+  const prefs = { timer: true, split: 0.58 };
+
+  try {
+    for (const q of QS) {
+      html(`BD:${q.id}`, h(app.BDetail, { q, onBack: noop }));
+      // BSession の useState 呼び出し順:
+      // idx, selected, answered, log, topTab, bottomTab, expTab, showFull, showRef, viewer, toast, draft
+      const wrong = (q.answer + 1) % q.choices.length;
+      const states = {
+        "q-trace":   [0, null, false, [], "q", "trace", "model", false, false, null, null, ""],
+        "prog-trace":[0, null, false, [], "p", "trace", "model", false, false, null, null, ""],
+        "choices":   [0, null, false, [], "q", "choices", "model", false, false, null, null, ""],
+        "ok-model":  [0, q.answer, true, [], "q", "explain", "model", true, false, null, null, ""],
+        "ng-mine":   [0, wrong, true, [], "p", "explain", "mine", true, false, null, null, ""],
+      };
+      for (const [name, vals] of Object.entries(states)) {
+        const key = `BS:${q.id}:${name}`;
+        guard(key, () => {
+          det.reset(key);
+          return sha(withForcedHooks(React, new Map(vals.map((v, i) => [i, v])),
+            () => render(h(app.BSession, { questions: [q], prefs, setPrefs: noop, onFinish: noop, onQuit: noop, updateCard: noop }))));
+        });
+      }
+      val(`fn:plainPreview:${q.id}`, () => sha(app.plainPreview(q.question)));
+      val(`fn:buildFilled:${q.id}`, () => q.choices.map((_, i) => app.buildFilled(q, i)));
+    }
+
+    // トレース表：初期化→入力→確定→訂正→削除までの状態遷移と、その描画
+    for (const [pid, prog] of Object.entries(PG)) {
+      const tr = prog.trace;
+      if (!tr) continue;
+      const key = `TR:${pid}`;
+      guard(key, () => {
+        det.reset(key);
+        const cols = app.expandColumns(tr.columns || []);
+        const c0 = cols[0] ? cols[0].key : "x";
+        let st = app.initTrace(tr);
+        const R = (a) => (st = app.traceReducer(st, a));
+        const open = () => st.rows.find((r) => !r.locked);
+        const line = (prog.lines[1] || prog.lines[0] || { n: 1 }).n;
+        R({ type: "FOCUS", rowId: open().id, col: c0 });
+        R({ type: "SET_STEP", rowId: open().id, value: line });
+        R({ type: "SET_CELL", rowId: open().id, col: c0, value: "1" });
+        R({ type: "SET_CELL", rowId: open().id, col: c0, value: "2" });       // 未確定なので上書き
+        const locked = open().id;
+        R({ type: "COMMIT" });
+        R({ type: "SET_CELL", rowId: locked, col: c0, value: "3" });          // 確定済みなので訂正として積む
+        R({ type: "SET_CELL", rowId: locked, col: c0, value: "3" });          // 同じ値は積まない
+        R({ type: "BLUR" });
+        const extra = open().id;
+        R({ type: "DELETE_ROW", rowId: extra });
+        const out = { cols, rows: st.rows, corrections: app.countCorrections(st.rows) };
+        items[`TRH:${pid}`] = sha(render(h(app.TraceTable, { columns: tr.columns, rows: st.rows, mode: "edit", activeCell: null, onCellTap: noop, onStepTap: noop })));
+        if (tr.expected) items[`TRX:${pid}`] = app.expectedRows(tr.expected);
+        return out;
+      });
+    }
+
+    // 主要画面（学習状態の見本つき）
+    const st = srsFixture(QS, (q) => q.id);
+    const storage = { "fe-exam-b-srs-v1": JSON.stringify(st) };
+    html("SB:App", h(app.App), storage);
+    html("SB:App-empty", h(app.App));
+    html("SB:BHome", h(app.BHome, { states: st, prefs, setPrefs: noop, dueCount: 3, newCount: 20, onReview: noop, onSetup: noop, onList: noop, onStats: noop, onRef: noop }));
+    html("SB:BSetup", h(app.BSetup, { states: st, onStart: noop, onBack: noop }));
+    html("SB:BList", h(app.BList, { states: st, onOpen: noop, onBack: noop }));
+    html("SB:BStats", h(app.BStats, { states: st, onBack: noop, onReset: noop }), storage);
+    html("SB:BStats-empty", h(app.BStats, { states: {}, onBack: noop, onReset: noop }));
+    const log = QS.slice(0, 8).map((q, i) => ({ q, selected: i % 2 ? (q.answer + 1) % q.choices.length : q.answer, correct: i % 2 === 0, quality: i % 3, ms: 61000 * (i + 1) }));
+    html("SB:BResult", h(app.BResult, { log, onHome: noop, onOpen: noop }));
+    html("SB:Ref", h(app.Modal, { title: "擬似言語の記述形式", onClose: noop }, h(app.BRichText || app.RichText, { text: app.REF_TEXT, style: { fontSize: 13 } })));
+    val("fn:fmtMs", () => [0, 999, 59000, 60000, 599000, 3599000].map(app.fmtMs));
+    val("fn:statusOf", () => QS.map((q) => app.statusOf(st, q)));
+  } finally {
+    det.restore();
+    console.warn = realConsole.warn; console.error = realConsole.error;
+  }
+
+  const keys = Object.keys(items).sort();
+  const counts = {};
+  keys.forEach((k) => { const pfx = k.split(":")[0]; counts[pfx] = (counts[pfx] || 0) + 1; });
+  fs.writeFileSync(outPath, JSON.stringify({ counts, errors: errors.length, items: Object.fromEntries(keys.map((k) => [k, items[k]])) }, null, 1) + "\n");
+  console.log(`科目B スナップショット ${keys.length}項目 → ${outPath}`);
+  console.log("  内訳:", Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(" / "));
+  if (warns.size) [...warns].sort((a, b) => b[1] - a[1]).forEach(([m, n]) => console.log(`   警告 ${String(n).padStart(4)}  ${m}`));
+  if (errors.length) { console.log(`  描画・実行エラー ${errors.length}件:`); errors.slice(0, 20).forEach((e) => console.log("   - " + e)); }
+}
+
 async function main() {
   const args = process.argv.slice(2);
   // 比較はバンドル不要なので先に分岐する
   if (args[0] === "--snapshot-diff") {
     if (args.length !== 3) { console.error("使い方: --snapshot-diff <a.json> <b.json>"); process.exit(2); }
     snapshotDiff(args[1], args[2]);
+    return;
+  }
+  if (args[0] === "--b-session") {
+    // 科目Bの出題画面を「解答済み・解説を展開」で1問ずつ描く（--snapshot-b の差分の中身を見るため）
+    // node tools/render_check.mjs --b-session B-R05-01 [ok|ng]
+    const appB = await loadApp(KAMOKUB_ENTRY, KAMOKUB_EXPORTS);
+    const QS = require(path.join(ROOT, "subject-b", "data", "kamokub.json"));
+    const q = QS.find((x) => x.id === args[1]);
+    if (!q) { console.error(`# ${args[1]}: 見つかりません`); return; }
+    const ok = args[2] !== "ng";
+    const det = installDeterminism(); det.reset(`BS:${q.id}`);
+    const sel = ok ? q.answer : (q.answer + 1) % q.choices.length;
+    const vals = [0, sel, true, [], ok ? "q" : "p", "explain", ok ? "model" : "mine", true, false, null, null, ""];
+    try {
+      console.log(withForcedHooks(React, new Map(vals.map((v, i) => [i, v])), () => render(React.createElement(appB.BSession,
+        { questions: [q], prefs: { timer: true, split: 0.58 }, setPrefs() {}, onFinish() {}, onQuit() {}, updateCard() {} }))));
+    } finally { det.restore(); }
+    return;
+  }
+  if (args[0] === "--snapshot-b") {
+    if (!args[1]) { console.error("使い方: --snapshot-b <out.json>"); process.exit(2); }
+    const appB = await loadApp(KAMOKUB_ENTRY, KAMOKUB_EXPORTS);
+    await snapshotB(appB, args[1]);
     return;
   }
   const app = await loadApp();
