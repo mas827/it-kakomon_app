@@ -238,13 +238,20 @@ export function parseTableBlock(lines, startIdx) {
   return { rows, nextIdx: i };
 }
 
-export function RichText({ text, style, as }) {
+// filled … 空欄 [[a]] に差し込む字句（科目B。解答前は null）。空欄を含まない文には効かない
+// scrollTables … 表を横スクロールの枠に入れ、セルの寄せを中身に合わせる（科目B）。
+//   省略時は従来の描き方（幅480pxに押し込む）。科目Aを切り替えるならここを true にするだけでよい
+export function RichText({ text, style, as, filled, scrollTables }) {
   if (!text) return null;
   const hasTable = isTableRow(text.split("\n")[0]) || /\n\s*\|.*\|\s*\n\s*\|(\s*:?-+:?\s*\|)+/.test(text);
   const hasMath = text.includes("$");
   if (!hasTable && !hasMath) {
     const Tag = as || "p";
-    return <Tag style={{ whiteSpace: "pre-wrap", ...style }}>{text}</Tag>;
+    return (
+      <Tag style={{ whiteSpace: "pre-wrap", ...style }}>
+        {text.includes("[[") ? withBlanks(text, filled) : text}
+      </Tag>
+    );
   }
   const lines = text.split("\n");
   const blocks = [];
@@ -274,18 +281,36 @@ export function RichText({ text, style, as }) {
       {blocks.map((b, bi) => {
         if (b.type === "table") {
           const [header, ...body] = b.rows;
+          if (scrollTables) {
+            return (
+              <div key={bi} style={{ overflowX: "auto", margin: "12px 0" }}>
+                <table style={{ borderCollapse: "collapse", fontSize: 13, minWidth: "100%" }}>
+                  <thead><tr>{header.map((c, j) => (
+                    <th key={j} style={{ ...cellStyle(c), background: C.panelHi, textAlign: "center" }}>
+                      <Cellish text={c} filled={filled} />
+                    </th>
+                  ))}</tr></thead>
+                  <tbody>{body.map((row, ri) => (
+                    <tr key={ri}>{row.map((c, ci) => (
+                      <td key={ci} style={cellStyle(c)}><Cellish text={c} filled={filled} /></td>
+                    ))}</tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            );
+          }
           return (
             <table key={bi} style={{ borderCollapse: "collapse", margin: "12px 0", fontSize: 14 }}>
-              <thead><tr>{header.map((c, j) => <th key={j} style={tableCellStyle}><InlineRich text={c} /></th>)}</tr></thead>
+              <thead><tr>{header.map((c, j) => <th key={j} style={tableCellStyle}><Cellish text={c} filled={filled} /></th>)}</tr></thead>
               <tbody>{body.map((row, ri) => (
-                <tr key={ri}>{row.map((c, ci) => <td key={ci} style={tableCellStyle}><InlineRich text={c} /></td>)}</tr>
+                <tr key={ri}>{row.map((c, ci) => <td key={ci} style={tableCellStyle}><Cellish text={c} filled={filled} /></td>)}</tr>
               ))}</tbody>
             </table>
           );
         }
         return (
           <p key={bi} style={{ whiteSpace: "pre-wrap", margin: 0 }}>
-            <InlineRich text={b.value} />
+            {b.value.includes("[[") ? withBlanks(b.value, filled) : <InlineRich text={b.value} />}
           </p>
         );
       })}
@@ -294,7 +319,55 @@ export function RichText({ text, style, as }) {
 }
 
 export function plainPreview(text) {
-  return text.replace(/\$([^$]+)\$/g, "$1").replace(/\n/g, " ").replace(/\|/g, " ");
+  return text.replace(/\$([^$]+)\$/g, "$1").replace(/\[\[[^\]]*\]\]/g, "▢").replace(/\n/g, " ").replace(/\|/g, " ");
+}
+
+// 表のセル（scrollTables のとき）。短い語は中央、長い文は左に寄せる
+export const cellStyle = (text) => ({
+  border: `1px solid ${C.border}`,
+  padding: "6px 10px",
+  textAlign: String(text || "").length > 12 ? "left" : "center",
+  verticalAlign: "top",
+});
+
+// 表のセルの中身。空欄 [[a]] と数式 $…$ に対応し、<br> をセル内の改行として扱う
+export function Cellish({ text, filled }) {
+  const parts = String(text).split(/<br\s*\/?>/i);
+  return (
+    <>
+      {parts.map((part, i) => (
+        <React.Fragment key={i}>
+          {i > 0 && <br />}
+          {part.includes("[[") ? withBlanks(part, filled) : <InlineRich text={part} />}
+        </React.Fragment>
+      ))}
+    </>
+  );
+}
+
+// ===== 空欄（[[a]]）の描画（科目B） =====
+// 文中の [[a]] を枠付きのチップとして描く。解答後は filled（{ a: "maxNum", … }）の字句を差し込む。
+// 科目Aのデータには [[ ]] が無いので、科目Aの描画には影響しない。
+export const BLANK_RE = /(\[\[[^\]]*\]\])/g;
+export const blankName = (tok) => tok.slice(2, -2).trim();
+
+export function withBlanks(text, filled, key) {
+  return String(text).split(BLANK_RE).map((seg, i) => {
+    // 空欄以外の部分は数式（$…$）を含むことがあるので InlineRich に通す
+    if (!/^\[\[[^\]]*\]\]$/.test(seg)) return <InlineRich key={i} text={seg} />;
+    const name = blankName(seg);
+    const value = filled ? filled[name] : null;
+    return (
+      <span key={i} style={{
+        display: "inline-block", minWidth: value ? 0 : 34, padding: "0 6px", margin: "0 2px",
+        border: `1px solid ${value ? C.accent : C.amber}`, borderRadius: 4,
+        background: value ? "#3fb95018" : "#d2992218",
+        color: value ? C.accent : C.amber, fontFamily: mono, fontSize: "0.95em",
+      }}>
+        {value || name || "　"}
+      </span>
+    );
+  });
 }
 
 // ===== 小物（見出し・トグル・数値カード・理解度ボタン） =====
