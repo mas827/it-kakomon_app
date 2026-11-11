@@ -1,5 +1,5 @@
 // Service Worker - オフライン対応
-const CACHE = 'fe-exam-v33';
+const CACHE = 'fe-exam-v34';
 const ASSETS = [
   './', './index.html', './app.js', './manifest.json', './icon-192.png', './icon-512.png',
   './katex/katex.min.css',
@@ -139,6 +139,14 @@ const IMAGES = [
   './images/2019A-13.png',
   './images/2019A-22.png',
   './images/2019A-29.png',
+  './images/B-R06-03-1.png',
+  './images/B-R06-03-2.png',
+  './images/B-R07-03-1.png',
+  './images/B-R08-04-1.png',
+  './images/B-R08-04-2.png',
+  './images/B-R08-05-1.png',
+  './images/B-SAMPLE-09-1.png',
+  './images/B-SAMPLE-15-1.png',
   './images/NO1-17.png',
   './images/NO1-21.png',
   './images/NO1-25.png',

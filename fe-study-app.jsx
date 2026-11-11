@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import QUESTIONS from "./data/questions.json";
 import ABBRS from "./data/abbr.json";
 import CALC_IDS_RAW from "./data/calc_ids.json";
+import KamokuBApp, { KAMOKUB_KEYS } from "./kamokub.jsx";
 import { C, mono, sans, cardBtn, GlobalStyle, loadJSON, saveJSON, DAY_MS, todayStr, addDays,
   initCard, reviewCard, useCardStates, histCorrect, useTimer, fmtMs, shuffle, LIST_PAGE, RichText,
   plainPreview, Stat, Section, Toggle, RateBtn, SummaryCard, TopBar } from "./ui-common.jsx";
@@ -146,22 +147,24 @@ const catColor = (cat) => {
   return map[cat] || C.dim;
 };
 
-// ===== メインコンポーネント（タブで2モードを切り替え） =====
+// ===== メインコンポーネント（下部タブで4モードを切り替え） =====
 export default function App() {
   const [tab, setTab] = useState("quiz");
-  // 学習中（過去問の出題中／英略語のカード学習中）はタブバーを隠して集中できるようにする
+  // 学習中（過去問の出題中／英略語のカード学習中／模試の実施中／科目Bの演習中）はタブバーを隠して集中できるようにする
   const [quizBusy, setQuizBusy] = useState(false);
   const [abbrBusy, setAbbrBusy] = useState(false);
   const [mockBusy, setMockBusy] = useState(false);
-  const busy = { quiz: quizBusy, abbr: abbrBusy, mock: mockBusy }[tab];
   // 過去問の学習カードは過去問モードと模試（採点結果を復習に登録）で共有する。
   // 片方が localStorage に直接書くと、もう片方のメモリ上の古い states で上書きされて消えるので、ここで1つだけ持つ
   const [cardStates, updateCard, resetCards, setCards] = useCardStates(STORAGE_KEY);
+  // 科目Bの学習カードは科目Bのキー（fe-exam-b-srs-v1）に科目Bの中だけで持つ。科目Aとは共有しない
+  const [kamokubBusy, setKamokubBusy] = useState(false);
+  const busy = { quiz: quizBusy, abbr: abbrBusy, mock: mockBusy, kamokub: kamokubBusy }[tab];
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text, fontFamily: sans, display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: 480, minHeight: "100vh", display: "flex", flexDirection: "column", position: "relative" }}>
-        {/* 両モードとも状態を保持したままにするため、非表示で残す */}
+        {/* どのモードも状態を保持したままにするため、非表示で残す */}
         <div style={{ display: tab === "quiz" ? "flex" : "none", flexDirection: "column", flex: 1 }}>
           <QuizApp onBusyChange={setQuizBusy} states={cardStates} updateCard={updateCard} resetAll={resetCards} />
         </div>
@@ -170,6 +173,9 @@ export default function App() {
         </div>
         <div style={{ display: tab === "mock" ? "flex" : "none", flexDirection: "column", flex: 1 }}>
           <MockApp onBusyChange={setMockBusy} cardStates={cardStates} setCards={setCards} />
+        </div>
+        <div style={{ display: tab === "kamokub" ? "flex" : "none", flexDirection: "column", flex: 1 }}>
+          <KamokuBApp onBusyChange={setKamokubBusy} />
         </div>
         {!busy && <TabBar tab={tab} onChange={setTab} />}
       </div>
@@ -183,6 +189,7 @@ function TabBar({ tab, onChange }) {
     { key: "quiz", icon: "📝", label: "過去問" },
     { key: "abbr", icon: "📇", label: "英略語" },
     { key: "mock", icon: "🏁", label: "模試" },
+    { key: "kamokub", icon: "📘", label: "科目B" },
   ];
   return (
     <div style={{
@@ -1199,10 +1206,11 @@ function StatsScreen({ states, onBack, onReset }) {
 }
 
 // ===== 学習履歴のバックアップ / 復元 =====
-// 過去問（fe-exam-srs-v1）と英略語（it-abbr-srs-v1）の両方を1つのファイルにまとめて
+// 過去問（fe-exam-srs-v1）・英略語（it-abbr-srs-v1）・模試の履歴・科目B（fe-exam-b-*）を1つのファイルにまとめて
 // 書き出し・読み込みできる。アプリを消しても、このファイルから履歴を復元できる。
-const SRS_KEYS = [STORAGE_KEY, ABBR_STORAGE_KEY];
-const BACKUP_KEYS = [...SRS_KEYS, MOCK_STORAGE_KEY];
+// version 1（科目B統合前）のファイルも読める。復元はファイルにあるキーだけ書くので、v1 では科目Bはそのまま残る
+const SRS_KEYS = [STORAGE_KEY, ABBR_STORAGE_KEY, KAMOKUB_KEYS.srs];
+const BACKUP_KEYS = [...SRS_KEYS, MOCK_STORAGE_KEY, KAMOKUB_KEYS.trace, KAMOKUB_KEYS.prefs];
 const BACKUP_MAGIC = "fe-exam-trainer-backup";
 
 function buildBackup() {
@@ -1213,7 +1221,7 @@ function buildBackup() {
       try { stores[k] = JSON.parse(raw); } catch (e) { /* skip broken */ }
     }
   });
-  return { app: BACKUP_MAGIC, version: 1, exportedAt: new Date().toISOString(), stores };
+  return { app: BACKUP_MAGIC, version: 2, exportedAt: new Date().toISOString(), stores };
 }
 
 function countCards(backup) {
@@ -1280,7 +1288,7 @@ function BackupRestore() {
     <div>
       <div style={{ fontSize: 12, color: C.faint, marginBottom: 10, fontFamily: mono }}>学習履歴のバックアップ</div>
       <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.7, marginBottom: 12 }}>
-        過去問と英略語の履歴をまとめて1つのファイルに保存します。アプリを消したり端末を変えても、このファイルから復元できます。
+        過去問・英略語・科目Bの履歴をまとめて1つのファイルに保存します。アプリを消したり端末を変えても、このファイルから復元できます。
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button onClick={doExport}
