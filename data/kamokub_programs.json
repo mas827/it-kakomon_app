@@ -1,0 +1,6118 @@
+{
+ "P-R05-01": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型の配列: findPrimeNumbers(整数型: maxNum)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型の配列: pnList ← {} // 要素数0の配列"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i, j"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "decl",
+    "text": "論理型: divideFlag"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (i を 2 から [[a]] まで 1 ずつ増やす)"
+   },
+   {
+    "n": 6,
+    "indent": 2,
+    "kind": "assign",
+    "text": "divideFlag ← true"
+   },
+   {
+    "n": 7,
+    "indent": 2,
+    "kind": "blank",
+    "text": ""
+   },
+   {
+    "n": 8,
+    "indent": 2,
+    "kind": "comment",
+    "text": "/* iの正の平方根の整数部分が2未満のときは，繰返し処理を実行しない */"
+   },
+   {
+    "n": 9,
+    "indent": 2,
+    "kind": "for",
+    "text": "for (j を 2 から iの正の平方根の整数部分 まで 1 ずつ増やす) // α"
+   },
+   {
+    "n": 10,
+    "indent": 3,
+    "kind": "if",
+    "text": "if ([[b]])"
+   },
+   {
+    "n": 11,
+    "indent": 4,
+    "kind": "assign",
+    "text": "divideFlag ← false"
+   },
+   {
+    "n": 12,
+    "indent": 4,
+    "kind": "break",
+    "text": "αの行から始まる繰返し処理を終了する"
+   },
+   {
+    "n": 13,
+    "indent": 3,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 14,
+    "indent": 2,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 15,
+    "indent": 2,
+    "kind": "if",
+    "text": "if (divideFlag が true と等しい)"
+   },
+   {
+    "n": 16,
+    "indent": 3,
+    "kind": "stmt",
+    "text": "pnListの末尾 に iの値 を追加する"
+   },
+   {
+    "n": 17,
+    "indent": 2,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 18,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 19,
+    "indent": 1,
+    "kind": "return",
+    "text": "return pnList"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "j",
+     "label": "j",
+     "type": "int"
+    },
+    {
+     "key": "divideFlag",
+     "label": "divideFlag",
+     "type": "bool"
+    },
+    {
+     "key": "pnList",
+     "label": "pnList",
+     "type": "object"
+    }
+   ],
+   "initial": {
+    "step": 2,
+    "values": {
+     "pnList": "{}"
+    }
+   },
+   "expected": [
+    {
+     "step": 2,
+     "values": {
+      "pnList": "{}"
+     },
+     "note": "初期状態。maxNum は 10 として追う"
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "2",
+      "divideFlag": "true"
+     }
+    },
+    {
+     "step": 9,
+     "values": {
+      "i": "2",
+      "divideFlag": "true"
+     },
+     "note": "2 から 1 まで。繰返しは実行されない"
+    },
+    {
+     "step": 16,
+     "values": {
+      "i": "2",
+      "divideFlag": "true",
+      "pnList": "{2}"
+     },
+     "note": "divideFlag が true なので追加"
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "3",
+      "divideFlag": "true"
+     }
+    },
+    {
+     "step": 16,
+     "values": {
+      "i": "3",
+      "divideFlag": "true",
+      "pnList": "{2, 3}"
+     },
+     "note": "3 も上限が 1 なので同様"
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "4",
+      "divideFlag": "true"
+     }
+    },
+    {
+     "step": 10,
+     "values": {
+      "i": "4",
+      "j": "2",
+      "divideFlag": "true"
+     },
+     "note": "4 ÷ 2 の余りは 0。条件は真"
+    },
+    {
+     "step": 12,
+     "values": {
+      "i": "4",
+      "j": "2",
+      "divideFlag": "false"
+     },
+     "note": "α の繰返しを抜ける。4 は追加されない"
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "5",
+      "divideFlag": "true"
+     }
+    },
+    {
+     "step": 10,
+     "values": {
+      "i": "5",
+      "j": "2",
+      "divideFlag": "true"
+     },
+     "note": "5 ÷ 2 の余りは 1。条件は偽"
+    },
+    {
+     "step": 16,
+     "values": {
+      "i": "5",
+      "divideFlag": "true",
+      "pnList": "{2, 3, 5}"
+     }
+    },
+    {
+     "ellipsis": true,
+     "note": "i = 6〜10 も同じ要領。追加されるのは 7 だけ"
+    },
+    {
+     "step": 19,
+     "values": {
+      "i": "10",
+      "divideFlag": "false",
+      "pnList": "{2, 3, 5, 7}"
+     },
+     "note": "pnList を返す"
+    }
+   ]
+  }
+ },
+ "P-R05-02": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○proc1()"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "stmt",
+    "text": "\"A\" を出力する"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "call",
+    "text": "proc3()"
+   },
+   {
+    "n": 4,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○proc2()"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "call",
+    "text": "proc3()"
+   },
+   {
+    "n": 6,
+    "indent": 1,
+    "kind": "stmt",
+    "text": "\"B\" を出力する"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "call",
+    "text": "proc1()"
+   },
+   {
+    "n": 8,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○proc3()"
+   },
+   {
+    "n": 9,
+    "indent": 1,
+    "kind": "stmt",
+    "text": "\"C\" を出力する"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "where",
+     "label": "いまいる手続",
+     "type": "note"
+    },
+    {
+     "key": "out",
+     "label": "出力",
+     "type": "output"
+    }
+   ],
+   "initial": {
+    "step": 4,
+    "values": {
+     "where": "proc2"
+    }
+   },
+   "expected": [
+    {
+     "step": 4,
+     "values": {
+      "where": "proc2",
+      "out": "（なし）"
+     },
+     "note": "proc2 を呼び出した"
+    },
+    {
+     "step": 5,
+     "values": {
+      "where": "proc2 → proc3"
+     },
+     "note": "proc3 を呼ぶ"
+    },
+    {
+     "step": 9,
+     "values": {
+      "where": "proc3",
+      "out": "“C”"
+     }
+    },
+    {
+     "step": 6,
+     "values": {
+      "where": "proc2",
+      "out": "“C”，“B”"
+     },
+     "note": "proc3 から戻って “B” を出力"
+    },
+    {
+     "step": 7,
+     "values": {
+      "where": "proc2 → proc1"
+     },
+     "note": "proc1 を呼ぶ"
+    },
+    {
+     "step": 2,
+     "values": {
+      "where": "proc1",
+      "out": "“C”，“B”，“A”"
+     }
+    },
+    {
+     "step": 3,
+     "values": {
+      "where": "proc1 → proc3"
+     },
+     "note": "proc1 からも proc3 を呼ぶ"
+    },
+    {
+     "step": 9,
+     "values": {
+      "where": "proc3",
+      "out": "“C”，“B”，“A”，“C”"
+     },
+     "note": "これが答え"
+    }
+   ]
+  }
+ },
+ "P-R05-03": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "global",
+    "text": "大域: 整数型の配列: data ← {2, 1, 3, 5, 4}"
+   },
+   {
+    "n": 2,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○sort(整数型: first, 整数型: last)"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: pivot, i, j"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "assign",
+    "text": "pivot ← data[(first ＋ last) ÷ 2 の商]"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "assign",
+    "text": "i ← first"
+   },
+   {
+    "n": 6,
+    "indent": 1,
+    "kind": "assign",
+    "text": "j ← last"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "while",
+    "text": "while (true)"
+   },
+   {
+    "n": 8,
+    "indent": 2,
+    "kind": "while",
+    "text": "while (data[i] ＜ pivot)"
+   },
+   {
+    "n": 9,
+    "indent": 3,
+    "kind": "assign",
+    "text": "i ← i ＋ 1"
+   },
+   {
+    "n": 10,
+    "indent": 2,
+    "kind": "endwhile",
+    "text": "endwhile"
+   },
+   {
+    "n": 11,
+    "indent": 2,
+    "kind": "while",
+    "text": "while (pivot ＜ data[j])"
+   },
+   {
+    "n": 12,
+    "indent": 3,
+    "kind": "assign",
+    "text": "j ← j － 1"
+   },
+   {
+    "n": 13,
+    "indent": 2,
+    "kind": "endwhile",
+    "text": "endwhile"
+   },
+   {
+    "n": 14,
+    "indent": 2,
+    "kind": "if",
+    "text": "if (i ≧ j)"
+   },
+   {
+    "n": 15,
+    "indent": 3,
+    "kind": "break",
+    "text": "繰返し処理を終了する"
+   },
+   {
+    "n": 16,
+    "indent": 2,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 17,
+    "indent": 2,
+    "kind": "stmt",
+    "text": "data[i]とdata[j]の値を入れ替える"
+   },
+   {
+    "n": 18,
+    "indent": 2,
+    "kind": "assign",
+    "text": "i ← i ＋ 1"
+   },
+   {
+    "n": 19,
+    "indent": 2,
+    "kind": "assign",
+    "text": "j ← j － 1"
+   },
+   {
+    "n": 20,
+    "indent": 1,
+    "kind": "endwhile",
+    "text": "endwhile"
+   },
+   {
+    "n": 21,
+    "indent": 1,
+    "kind": "stmt",
+    "text": "dataの全要素の値を要素番号の順に空白区切りで出力する /*** α ***/"
+   },
+   {
+    "n": 22,
+    "indent": 1,
+    "kind": "if",
+    "text": "if (first ＜ i － 1)"
+   },
+   {
+    "n": 23,
+    "indent": 2,
+    "kind": "call",
+    "text": "sort(first, i － 1)"
+   },
+   {
+    "n": 24,
+    "indent": 1,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 25,
+    "indent": 1,
+    "kind": "if",
+    "text": "if (j ＋ 1 ＜ last)"
+   },
+   {
+    "n": 26,
+    "indent": 2,
+    "kind": "call",
+    "text": "sort(j ＋ 1, last)"
+   },
+   {
+    "n": 27,
+    "indent": 1,
+    "kind": "endif",
+    "text": "endif"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "pivot",
+     "label": "pivot",
+     "type": "int"
+    },
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "j",
+     "label": "j",
+     "type": "int"
+    },
+    {
+     "key": "data",
+     "label": "data",
+     "type": "object"
+    }
+   ],
+   "initial": {
+    "step": 1,
+    "values": {
+     "data": "{2, 1, 3, 5, 4}"
+    }
+   },
+   "expected": [
+    {
+     "step": 1,
+     "values": {
+      "data": "{2, 1, 3, 5, 4}"
+     },
+     "note": "sort(1, 5) を呼び出す"
+    },
+    {
+     "step": 4,
+     "values": {
+      "pivot": "3"
+     },
+     "note": "data[(1＋5)÷2 の商] ＝ data[3] ＝ 3"
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "1",
+      "j": "5"
+     }
+    },
+    {
+     "step": 9,
+     "values": {
+      "i": "2"
+     },
+     "note": "data[1] ＝ 2 ＜ 3"
+    },
+    {
+     "step": 9,
+     "values": {
+      "i": "3"
+     },
+     "note": "data[2] ＝ 1 ＜ 3。data[3] ＝ 3 で止まる"
+    },
+    {
+     "step": 12,
+     "values": {
+      "j": "4"
+     },
+     "note": "3 ＜ data[5] ＝ 4"
+    },
+    {
+     "step": 12,
+     "values": {
+      "j": "3"
+     },
+     "note": "3 ＜ data[4] ＝ 5。data[3] ＝ 3 で止まる"
+    },
+    {
+     "step": 15,
+     "values": {
+      "i": "3",
+      "j": "3"
+     },
+     "note": "i ≧ j なので繰返しを抜ける"
+    },
+    {
+     "step": 21,
+     "values": {
+      "data": "{2, 1, 3, 5, 4}"
+     },
+     "note": "入替えが無いまま出力 → 2 1 3 5 4"
+    }
+   ]
+  }
+ },
+ "P-R05-04": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "global",
+    "text": "大域: 整数型の配列: hashArray"
+   },
+   {
+    "n": 2,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○論理型: add(整数型: value)"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i ← calcHash1(value)"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "if",
+    "text": "if (hashArray[i] ＝ －1)"
+   },
+   {
+    "n": 5,
+    "indent": 2,
+    "kind": "assign",
+    "text": "hashArray[i] ← value"
+   },
+   {
+    "n": 6,
+    "indent": 2,
+    "kind": "return",
+    "text": "return true"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "else",
+    "text": "else"
+   },
+   {
+    "n": 8,
+    "indent": 2,
+    "kind": "assign",
+    "text": "i ← calcHash2(value)"
+   },
+   {
+    "n": 9,
+    "indent": 2,
+    "kind": "if",
+    "text": "if (hashArray[i] ＝ －1)"
+   },
+   {
+    "n": 10,
+    "indent": 3,
+    "kind": "assign",
+    "text": "hashArray[i] ← value"
+   },
+   {
+    "n": 11,
+    "indent": 3,
+    "kind": "return",
+    "text": "return true"
+   },
+   {
+    "n": 12,
+    "indent": 2,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 13,
+    "indent": 1,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 14,
+    "indent": 1,
+    "kind": "return",
+    "text": "return false"
+   },
+   {
+    "n": 15,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型: calcHash1(整数型: value)"
+   },
+   {
+    "n": 16,
+    "indent": 1,
+    "kind": "return",
+    "text": "return (value mod hashArrayの要素数) ＋ 1"
+   },
+   {
+    "n": 17,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型: calcHash2(整数型: value)"
+   },
+   {
+    "n": 18,
+    "indent": 1,
+    "kind": "return",
+    "text": "return ((value ＋ 3) mod hashArrayの要素数) ＋ 1"
+   },
+   {
+    "n": 19,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○test()"
+   },
+   {
+    "n": 20,
+    "indent": 1,
+    "kind": "assign",
+    "text": "hashArray ← {5個の －1}"
+   },
+   {
+    "n": 21,
+    "indent": 1,
+    "kind": "call",
+    "text": "add(3)"
+   },
+   {
+    "n": 22,
+    "indent": 1,
+    "kind": "call",
+    "text": "add(18)"
+   },
+   {
+    "n": 23,
+    "indent": 1,
+    "kind": "call",
+    "text": "add(11)"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "value",
+     "label": "value",
+     "type": "int"
+    },
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "hashArray",
+     "label": "hashArray",
+     "type": "object"
+    }
+   ],
+   "initial": {
+    "step": 20,
+    "values": {
+     "hashArray": "{－1, －1, －1, －1, －1}"
+    }
+   },
+   "expected": [
+    {
+     "step": 20,
+     "values": {
+      "hashArray": "{－1, －1, －1, －1, －1}"
+     },
+     "note": "5個の －1 で初期化"
+    },
+    {
+     "step": 3,
+     "values": {
+      "value": "3",
+      "i": "4"
+     },
+     "note": "calcHash1(3) ＝ (3 mod 5)＋1 ＝ 4"
+    },
+    {
+     "step": 5,
+     "values": {
+      "value": "3",
+      "i": "4",
+      "hashArray": "{－1, －1, －1, 3, －1}"
+     },
+     "note": "空いていたので格納"
+    },
+    {
+     "step": 3,
+     "values": {
+      "value": "18",
+      "i": "4"
+     },
+     "note": "calcHash1(18) ＝ 4。ここは 3 が使用中"
+    },
+    {
+     "step": 8,
+     "values": {
+      "value": "18",
+      "i": "2"
+     },
+     "note": "calcHash2(18) ＝ (21 mod 5)＋1 ＝ 2"
+    },
+    {
+     "step": 10,
+     "values": {
+      "value": "18",
+      "i": "2",
+      "hashArray": "{－1, 18, －1, 3, －1}"
+     }
+    },
+    {
+     "step": 3,
+     "values": {
+      "value": "11",
+      "i": "2"
+     },
+     "note": "calcHash1(11) ＝ 2。ここは 18 が使用中"
+    },
+    {
+     "step": 8,
+     "values": {
+      "value": "11",
+      "i": "5"
+     },
+     "note": "calcHash2(11) ＝ (14 mod 5)＋1 ＝ 5"
+    },
+    {
+     "step": 10,
+     "values": {
+      "value": "11",
+      "i": "5",
+      "hashArray": "{－1, 18, －1, 3, 11}"
+     },
+     "note": "これが答え"
+    }
+   ]
+  }
+ },
+ "P-R05-05": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○実数型: calcCosineSimilarity(実数型の配列: vector1, 実数型の配列: vector2)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "実数型: similarity, numerator, denominator, temp ← 0"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "assign",
+    "text": "numerator ← 0"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (i を 1 から vector1の要素数 まで 1 ずつ増やす)"
+   },
+   {
+    "n": 6,
+    "indent": 2,
+    "kind": "assign",
+    "text": "numerator ← numerator ＋ [[a]]"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 8,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (i を 1 から vector1の要素数 まで 1 ずつ増やす)"
+   },
+   {
+    "n": 9,
+    "indent": 2,
+    "kind": "assign",
+    "text": "temp ← temp ＋ vector1[i]の2乗"
+   },
+   {
+    "n": 10,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 11,
+    "indent": 1,
+    "kind": "assign",
+    "text": "denominator ← tempの正の平方根"
+   },
+   {
+    "n": 12,
+    "indent": 1,
+    "kind": "assign",
+    "text": "temp ← 0"
+   },
+   {
+    "n": 13,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (i を 1 から vector2の要素数 まで 1 ずつ増やす)"
+   },
+   {
+    "n": 14,
+    "indent": 2,
+    "kind": "assign",
+    "text": "temp ← temp ＋ vector2[i]の2乗"
+   },
+   {
+    "n": 15,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 16,
+    "indent": 1,
+    "kind": "assign",
+    "text": "denominator ← [[b]]"
+   },
+   {
+    "n": 17,
+    "indent": 1,
+    "kind": "assign",
+    "text": "similarity ← numerator ÷ denominator"
+   },
+   {
+    "n": 18,
+    "indent": 1,
+    "kind": "return",
+    "text": "return similarity"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "numerator",
+     "label": "numerator",
+     "type": "real"
+    },
+    {
+     "key": "temp",
+     "label": "temp",
+     "type": "real"
+    },
+    {
+     "key": "denominator",
+     "label": "denominator",
+     "type": "real"
+    }
+   ],
+   "initial": {
+    "step": 4,
+    "values": {
+     "numerator": "0",
+     "temp": "0"
+    }
+   },
+   "expected": [
+    {
+     "step": 4,
+     "values": {
+      "numerator": "0",
+      "temp": "0"
+     },
+     "note": "vector1 ＝ {1, 2}，vector2 ＝ {3, 4} として追う"
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "1",
+      "numerator": "3"
+     },
+     "note": "1 × 3"
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "2",
+      "numerator": "11"
+     },
+     "note": "＋ 2 × 4"
+    },
+    {
+     "step": 9,
+     "values": {
+      "i": "1",
+      "temp": "1"
+     },
+     "note": "vector1 の2乗和"
+    },
+    {
+     "step": 9,
+     "values": {
+      "i": "2",
+      "temp": "5"
+     }
+    },
+    {
+     "step": 11,
+     "values": {
+      "temp": "5",
+      "denominator": "2.236"
+     },
+     "note": "$\\sqrt{5}$"
+    },
+    {
+     "step": 12,
+     "values": {
+      "temp": "0"
+     },
+     "note": "temp を 0 に戻す"
+    },
+    {
+     "step": 14,
+     "values": {
+      "i": "1",
+      "temp": "9"
+     },
+     "note": "vector2 の2乗和"
+    },
+    {
+     "step": 14,
+     "values": {
+      "i": "2",
+      "temp": "25"
+     }
+    },
+    {
+     "step": 16,
+     "values": {
+      "temp": "25",
+      "denominator": "11.180"
+     },
+     "note": "2.236 × 5"
+    },
+    {
+     "step": 18,
+     "values": {
+      "numerator": "11",
+      "denominator": "11.180"
+     },
+     "note": "11 ÷ 11.180 ＝ 0.9839 を返す"
+    }
+   ]
+  }
+ },
+ "P-R06-01": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型: maximum(整数型: x, 整数型: y, 整数型: z)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "if",
+    "text": "if ( [[]] )"
+   },
+   {
+    "n": 3,
+    "indent": 2,
+    "kind": "return",
+    "text": "return x"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "elseif",
+    "text": "elseif (y ＞ z)"
+   },
+   {
+    "n": 5,
+    "indent": 2,
+    "kind": "return",
+    "text": "return y"
+   },
+   {
+    "n": 6,
+    "indent": 1,
+    "kind": "else",
+    "text": "else"
+   },
+   {
+    "n": 7,
+    "indent": 2,
+    "kind": "return",
+    "text": "return z"
+   },
+   {
+    "n": 8,
+    "indent": 1,
+    "kind": "endif",
+    "text": "endif"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "x",
+     "label": "x",
+     "type": "int"
+    },
+    {
+     "key": "y",
+     "label": "y",
+     "type": "int"
+    },
+    {
+     "key": "z",
+     "label": "z",
+     "type": "int"
+    },
+    {
+     "key": "ret",
+     "label": "戻り値",
+     "type": "note"
+    }
+   ],
+   "initial": {
+    "step": 1,
+    "values": {
+     "x": "5",
+     "y": "1",
+     "z": "3"
+    }
+   },
+   "expected": [
+    {
+     "step": 1,
+     "values": {
+      "x": "5",
+      "y": "1",
+      "z": "3"
+     },
+     "note": "maximum(5, 1, 3) として追う"
+    },
+    {
+     "step": 2,
+     "values": {},
+     "note": "5＞1 かつ 5＞3 なので真"
+    },
+    {
+     "step": 3,
+     "values": {
+      "ret": "5"
+     },
+     "note": "x を返す"
+    },
+    {
+     "ellipsis": true,
+     "note": "x が最大でないときは elseif で y と z を比べる"
+    }
+   ]
+  }
+ },
+ "P-R06-02": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型: convDecimal(文字列型: binary)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i, length, result ← 0"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "assign",
+    "text": "length ← binaryの文字数"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (i を 1 から length まで 1 ずつ増やす)"
+   },
+   {
+    "n": 5,
+    "indent": 2,
+    "kind": "assign",
+    "text": "result ← [[]]"
+   },
+   {
+    "n": 6,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "return",
+    "text": "return result"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "ch",
+     "label": "i文字目",
+     "type": "string"
+    },
+    {
+     "key": "result",
+     "label": "result",
+     "type": "int"
+    }
+   ],
+   "initial": {
+    "step": 2,
+    "values": {
+     "result": "0"
+    }
+   },
+   "expected": [
+    {
+     "step": 2,
+     "values": {
+      "result": "0"
+     },
+     "note": "binary は “10010”，length は 5"
+    },
+    {
+     "step": 5,
+     "values": {
+      "i": "1",
+      "ch": "“1”",
+      "result": "1"
+     },
+     "note": "0×2＋1"
+    },
+    {
+     "step": 5,
+     "values": {
+      "i": "2",
+      "ch": "“0”",
+      "result": "2"
+     },
+     "note": "1×2＋0"
+    },
+    {
+     "step": 5,
+     "values": {
+      "i": "3",
+      "ch": "“0”",
+      "result": "4"
+     }
+    },
+    {
+     "step": 5,
+     "values": {
+      "i": "4",
+      "ch": "“1”",
+      "result": "9"
+     },
+     "note": "4×2＋1"
+    },
+    {
+     "step": 5,
+     "values": {
+      "i": "5",
+      "ch": "“0”",
+      "result": "18"
+     }
+    },
+    {
+     "step": 7,
+     "values": {
+      "result": "18"
+     },
+     "note": "18 を返す"
+    }
+   ]
+  }
+ },
+ "P-R06-03": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型の二次元配列: edgesToMatrix(整数型配列の配列: edgeList, 整数型: nodeNum)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型の二次元配列: adjMatrix ← {nodeNum行nodeNum列の 0}"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i, u, v"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (i を 1 から edgeListの要素数 まで 1 ずつ増やす)"
+   },
+   {
+    "n": 5,
+    "indent": 2,
+    "kind": "assign",
+    "text": "u ← edgeList[i][1]"
+   },
+   {
+    "n": 6,
+    "indent": 2,
+    "kind": "assign",
+    "text": "v ← edgeList[i][2]"
+   },
+   {
+    "n": 7,
+    "indent": 2,
+    "kind": "stmt",
+    "text": "[[]]"
+   },
+   {
+    "n": 8,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 9,
+    "indent": 1,
+    "kind": "return",
+    "text": "return adjMatrix"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "u",
+     "label": "u",
+     "type": "int"
+    },
+    {
+     "key": "v",
+     "label": "v",
+     "type": "int"
+    },
+    {
+     "key": "set",
+     "label": "1 にした成分",
+     "type": "note"
+    }
+   ],
+   "initial": {
+    "step": 2,
+    "values": {
+     "set": "全て 0"
+    }
+   },
+   "expected": [
+    {
+     "step": 2,
+     "values": {
+      "set": "全て 0"
+     },
+     "note": "5行5列を 0 で初期化"
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "1",
+      "u": "1",
+      "v": "3"
+     }
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "1",
+      "u": "1",
+      "v": "3",
+      "set": "[1,3] と [3,1]"
+     },
+     "note": "対称に2か所"
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "2",
+      "u": "1",
+      "v": "4",
+      "set": "[1,4] と [4,1]"
+     }
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "3",
+      "u": "3",
+      "v": "4",
+      "set": "[3,4] と [4,3]"
+     }
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "4",
+      "u": "2",
+      "v": "4",
+      "set": "[2,4] と [4,2]"
+     }
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "5",
+      "u": "4",
+      "v": "5",
+      "set": "[4,5] と [5,4]"
+     }
+    },
+    {
+     "step": 9,
+     "values": {
+      "set": "計10か所が 1"
+     },
+     "note": "図2と一致する"
+    }
+   ]
+  }
+ },
+ "P-R06-04": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型の配列: merge(整数型の配列: data1, 整数型の配列: data2)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: n1 ← data1の要素数"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: n2 ← data2の要素数"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型の配列: work ← {(n1 ＋ n2)個の 未定義の値}"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i ← 1"
+   },
+   {
+    "n": 6,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: j ← 1"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: k ← 1"
+   },
+   {
+    "n": 8,
+    "indent": 1,
+    "kind": "while",
+    "text": "while ((i ≦ n1) and (j ≦ n2))"
+   },
+   {
+    "n": 9,
+    "indent": 2,
+    "kind": "if",
+    "text": "if (data1[i] ≦ data2[j])"
+   },
+   {
+    "n": 10,
+    "indent": 3,
+    "kind": "assign",
+    "text": "work[k] ← data1[i]"
+   },
+   {
+    "n": 11,
+    "indent": 3,
+    "kind": "assign",
+    "text": "i ← i ＋ 1"
+   },
+   {
+    "n": 12,
+    "indent": 2,
+    "kind": "else",
+    "text": "else"
+   },
+   {
+    "n": 13,
+    "indent": 3,
+    "kind": "assign",
+    "text": "work[k] ← data2[j]"
+   },
+   {
+    "n": 14,
+    "indent": 3,
+    "kind": "assign",
+    "text": "j ← j ＋ 1"
+   },
+   {
+    "n": 15,
+    "indent": 2,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 16,
+    "indent": 2,
+    "kind": "assign",
+    "text": "k ← k ＋ 1"
+   },
+   {
+    "n": 17,
+    "indent": 1,
+    "kind": "endwhile",
+    "text": "endwhile"
+   },
+   {
+    "n": 18,
+    "indent": 1,
+    "kind": "while",
+    "text": "while (i ≦ n1)"
+   },
+   {
+    "n": 19,
+    "indent": 2,
+    "kind": "assign",
+    "text": "work[k] ← data1[i]"
+   },
+   {
+    "n": 20,
+    "indent": 2,
+    "kind": "assign",
+    "text": "i ← i ＋ 1"
+   },
+   {
+    "n": 21,
+    "indent": 2,
+    "kind": "assign",
+    "text": "k ← k ＋ 1"
+   },
+   {
+    "n": 22,
+    "indent": 1,
+    "kind": "endwhile",
+    "text": "endwhile"
+   },
+   {
+    "n": 23,
+    "indent": 1,
+    "kind": "while",
+    "text": "while (j ≦ n2)"
+   },
+   {
+    "n": 24,
+    "indent": 2,
+    "kind": "assign",
+    "text": "work[k] ← data2[j] /*** α ***/"
+   },
+   {
+    "n": 25,
+    "indent": 2,
+    "kind": "assign",
+    "text": "j ← j ＋ 1"
+   },
+   {
+    "n": 26,
+    "indent": 2,
+    "kind": "assign",
+    "text": "k ← k ＋ 1"
+   },
+   {
+    "n": 27,
+    "indent": 1,
+    "kind": "endwhile",
+    "text": "endwhile"
+   },
+   {
+    "n": 28,
+    "indent": 1,
+    "kind": "return",
+    "text": "return work"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "j",
+     "label": "j",
+     "type": "int"
+    },
+    {
+     "key": "k",
+     "label": "k",
+     "type": "int"
+    },
+    {
+     "key": "work",
+     "label": "work",
+     "type": "object"
+    }
+   ],
+   "initial": {
+    "step": 7,
+    "values": {
+     "i": "1",
+     "j": "1",
+     "k": "1",
+     "work": "{未定義, 未定義, 未定義, 未定義}"
+    }
+   },
+   "expected": [
+    {
+     "step": 7,
+     "values": {
+      "i": "1",
+      "j": "1",
+      "k": "1",
+      "work": "{未定義×4}"
+     },
+     "note": "data1＝{2, 3}，data2＝{1, 4}"
+    },
+    {
+     "step": 13,
+     "values": {
+      "i": "1",
+      "j": "1",
+      "k": "1",
+      "work": "{1}"
+     },
+     "note": "2 ≦ 1 が偽なので data2 側"
+    },
+    {
+     "step": 16,
+     "values": {
+      "i": "1",
+      "j": "2",
+      "k": "2",
+      "work": "{1}"
+     }
+    },
+    {
+     "step": 10,
+     "values": {
+      "i": "1",
+      "j": "2",
+      "k": "2",
+      "work": "{1, 2}"
+     },
+     "note": "2 ≦ 4 なので data1 側"
+    },
+    {
+     "step": 16,
+     "values": {
+      "i": "2",
+      "j": "2",
+      "k": "3",
+      "work": "{1, 2}"
+     }
+    },
+    {
+     "step": 10,
+     "values": {
+      "i": "2",
+      "j": "2",
+      "k": "3",
+      "work": "{1, 2, 3}"
+     },
+     "note": "3 ≦ 4"
+    },
+    {
+     "step": 16,
+     "values": {
+      "i": "3",
+      "j": "2",
+      "k": "4",
+      "work": "{1, 2, 3}"
+     },
+     "note": "i ＞ n1 になり最初の while を抜ける"
+    },
+    {
+     "step": 18,
+     "values": {
+      "i": "3"
+     },
+     "note": "i ≦ n1 が偽。この while は素通り"
+    },
+    {
+     "step": 24,
+     "values": {
+      "j": "2",
+      "k": "4",
+      "work": "{1, 2, 3, 4}"
+     },
+     "note": "α の行。ここが1回だけ実行される"
+    }
+   ]
+  }
+ },
+ "P-R06-05": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "comment",
+    "text": "// 注文データ（ここでは表の例を与えている）"
+   },
+   {
+    "n": 2,
+    "indent": 0,
+    "kind": "global",
+    "text": "大域: 文字列型配列の配列: orders ← {{\"A\", \"B\", \"D\"}, {\"A\", \"D\"}, {\"A\"}, {\"A\", \"B\", \"E\"}, {\"B\"}, {\"C\", \"E\"}}"
+   },
+   {
+    "n": 3,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○putRelatedItem(文字列型: item)"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "decl",
+    "text": "文字列型の配列: allItems ← ordersに含まれる文字列を重複なく辞書順に格納した配列"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "comment",
+    "text": "// 表の例では {\"A\", \"B\", \"C\", \"D\", \"E\"}"
+   },
+   {
+    "n": 6,
+    "indent": 1,
+    "kind": "decl",
+    "text": "文字列型の配列: otherItems ← allItemsの複製から値がitemである要素を除いた配列"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i, itemCount ← 0"
+   },
+   {
+    "n": 8,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型の配列: arrayK ← {otherItemsの要素数個の0}"
+   },
+   {
+    "n": 9,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型の配列: arrayM ← {otherItemsの要素数個の0}"
+   },
+   {
+    "n": 10,
+    "indent": 1,
+    "kind": "decl",
+    "text": "実数型: valueL, maxL ← －∞"
+   },
+   {
+    "n": 11,
+    "indent": 1,
+    "kind": "decl",
+    "text": "文字列型の配列: order"
+   },
+   {
+    "n": 12,
+    "indent": 1,
+    "kind": "decl",
+    "text": "文字列型: relatedItem"
+   },
+   {
+    "n": 13,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (orderにordersの要素を順に代入する)"
+   },
+   {
+    "n": 14,
+    "indent": 2,
+    "kind": "if",
+    "text": "if (orderのいずれかの要素の値がitemの値と等しい)"
+   },
+   {
+    "n": 15,
+    "indent": 3,
+    "kind": "stmt",
+    "text": "itemCountの値を1増やす"
+   },
+   {
+    "n": 16,
+    "indent": 2,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 17,
+    "indent": 2,
+    "kind": "for",
+    "text": "for (iを1からotherItemsの要素数まで1ずつ増やす)"
+   },
+   {
+    "n": 18,
+    "indent": 3,
+    "kind": "if",
+    "text": "if (orderのいずれかの要素の値がotherItems[i]の値と等しい)"
+   },
+   {
+    "n": 19,
+    "indent": 4,
+    "kind": "if",
+    "text": "if (orderのいずれかの要素の値がitemの値と等しい)"
+   },
+   {
+    "n": 20,
+    "indent": 5,
+    "kind": "stmt",
+    "text": "[[a]] の値を1増やす"
+   },
+   {
+    "n": 21,
+    "indent": 4,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 22,
+    "indent": 4,
+    "kind": "stmt",
+    "text": "[[b]] の値を1増やす"
+   },
+   {
+    "n": 23,
+    "indent": 3,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 24,
+    "indent": 2,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 25,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 26,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (iを1からotherItemsの要素数まで1ずつ増やす)"
+   },
+   {
+    "n": 27,
+    "indent": 2,
+    "kind": "assign",
+    "text": "valueL ← (arrayM[i] × [[c]] ) ÷ (itemCount × arrayK[i])"
+   },
+   {
+    "n": 28,
+    "indent": 2,
+    "kind": "comment",
+    "text": "/* 実数として計算する */"
+   },
+   {
+    "n": 29,
+    "indent": 2,
+    "kind": "if",
+    "text": "if (valueLがmaxLより大きい)"
+   },
+   {
+    "n": 30,
+    "indent": 3,
+    "kind": "assign",
+    "text": "maxL ← valueL"
+   },
+   {
+    "n": 31,
+    "indent": 3,
+    "kind": "assign",
+    "text": "relatedItem ← otherItems[i]"
+   },
+   {
+    "n": 32,
+    "indent": 2,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 33,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 34,
+    "indent": 1,
+    "kind": "stmt",
+    "text": "relatedItemの値とmaxLの値をこの順にコンマ区切りで出力する"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "order",
+     "label": "order",
+     "type": "object"
+    },
+    {
+     "key": "itemCount",
+     "label": "itemCount",
+     "type": "int"
+    },
+    {
+     "key": "arrayK",
+     "label": "arrayK (B,C,D,E)",
+     "type": "object"
+    },
+    {
+     "key": "arrayM",
+     "label": "arrayM (B,C,D,E)",
+     "type": "object"
+    }
+   ],
+   "initial": {
+    "step": 9,
+    "values": {
+     "itemCount": "0",
+     "arrayK": "{0, 0, 0, 0}",
+     "arrayM": "{0, 0, 0, 0}"
+    }
+   },
+   "expected": [
+    {
+     "step": 9,
+     "values": {
+      "itemCount": "0",
+      "arrayK": "{0, 0, 0, 0}",
+      "arrayM": "{0, 0, 0, 0}"
+     },
+     "note": "item は “A”，otherItems は {B, C, D, E}"
+    },
+    {
+     "step": 22,
+     "values": {
+      "order": "{\"A\",\"B\",\"D\"}",
+      "itemCount": "1",
+      "arrayK": "{1, 0, 1, 0}",
+      "arrayM": "{1, 0, 1, 0}"
+     },
+     "note": "注文1。A があるので arrayM も増える"
+    },
+    {
+     "step": 22,
+     "values": {
+      "order": "{\"A\",\"D\"}",
+      "itemCount": "2",
+      "arrayK": "{1, 0, 2, 0}",
+      "arrayM": "{1, 0, 2, 0}"
+     }
+    },
+    {
+     "step": 22,
+     "values": {
+      "order": "{\"A\"}",
+      "itemCount": "3",
+      "arrayK": "{1, 0, 2, 0}",
+      "arrayM": "{1, 0, 2, 0}"
+     },
+     "note": "他の商品が無いので変わらない"
+    },
+    {
+     "step": 22,
+     "values": {
+      "order": "{\"A\",\"B\",\"E\"}",
+      "itemCount": "4",
+      "arrayK": "{2, 0, 2, 1}",
+      "arrayM": "{2, 0, 2, 1}"
+     }
+    },
+    {
+     "step": 22,
+     "values": {
+      "order": "{\"B\"}",
+      "itemCount": "4",
+      "arrayK": "{3, 0, 2, 1}",
+      "arrayM": "{2, 0, 2, 1}"
+     },
+     "note": "A が無いので arrayK だけ増える"
+    },
+    {
+     "step": 22,
+     "values": {
+      "order": "{\"C\",\"E\"}",
+      "itemCount": "4",
+      "arrayK": "{3, 1, 2, 2}",
+      "arrayM": "{2, 0, 2, 1}"
+     }
+    },
+    {
+     "step": 27,
+     "values": {
+      "itemCount": "4"
+     },
+     "note": "B は (2×6)÷(4×3) ＝ 1.0，D は (2×6)÷(4×2) ＝ 1.5"
+    },
+    {
+     "step": 34,
+     "values": {},
+     "note": "最大は D の 1.5"
+    }
+   ]
+  }
+ },
+ "P-R07-01": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型: function1(整数型: n, 整数型: m)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: count ← 0"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (iをnからmまで1ずつ増やす)"
+   },
+   {
+    "n": 5,
+    "indent": 2,
+    "kind": "if",
+    "text": "if ((i mod 4)が0と等しい)"
+   },
+   {
+    "n": 6,
+    "indent": 3,
+    "kind": "assign",
+    "text": "count ← count ＋ 1"
+   },
+   {
+    "n": 7,
+    "indent": 2,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 8,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 9,
+    "indent": 1,
+    "kind": "return",
+    "text": "return count"
+   },
+   {
+    "n": 10,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型: function2(整数型: n, 整数型: m)"
+   },
+   {
+    "n": 11,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: count ← 0"
+   },
+   {
+    "n": 12,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: tempN ← n"
+   },
+   {
+    "n": 13,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i, j"
+   },
+   {
+    "n": 14,
+    "indent": 1,
+    "kind": "for",
+    "text": "for ( [[a]] )"
+   },
+   {
+    "n": 15,
+    "indent": 2,
+    "kind": "if",
+    "text": "if ((tempN mod 4)が0と等しい)"
+   },
+   {
+    "n": 16,
+    "indent": 3,
+    "kind": "break",
+    "text": "繰返し処理を終了する"
+   },
+   {
+    "n": 17,
+    "indent": 2,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 18,
+    "indent": 2,
+    "kind": "assign",
+    "text": "tempN ← tempN ＋ 1"
+   },
+   {
+    "n": 19,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 20,
+    "indent": 1,
+    "kind": "for",
+    "text": "for ( [[b]] )"
+   },
+   {
+    "n": 21,
+    "indent": 2,
+    "kind": "assign",
+    "text": "count ← count ＋ 1"
+   },
+   {
+    "n": 22,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 23,
+    "indent": 1,
+    "kind": "return",
+    "text": "return count"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "tempN",
+     "label": "tempN",
+     "type": "int"
+    },
+    {
+     "key": "j",
+     "label": "j",
+     "type": "int"
+    },
+    {
+     "key": "count",
+     "label": "count",
+     "type": "int"
+    }
+   ],
+   "initial": {
+    "step": 12,
+    "values": {
+     "tempN": "13",
+     "count": "0"
+    }
+   },
+   "expected": [
+    {
+     "step": 12,
+     "values": {
+      "tempN": "13",
+      "count": "0"
+     },
+     "note": "n＝13, m＝30 として追う"
+    },
+    {
+     "step": 18,
+     "values": {
+      "i": "1",
+      "tempN": "14"
+     },
+     "note": "13 は 4 の倍数でない"
+    },
+    {
+     "step": 18,
+     "values": {
+      "i": "2",
+      "tempN": "15"
+     }
+    },
+    {
+     "step": 18,
+     "values": {
+      "i": "3",
+      "tempN": "16"
+     },
+     "note": "3回で 4 の倍数に届く"
+    },
+    {
+     "step": 21,
+     "values": {
+      "j": "16",
+      "count": "1"
+     }
+    },
+    {
+     "step": 21,
+     "values": {
+      "j": "20",
+      "count": "2"
+     }
+    },
+    {
+     "ellipsis": true,
+     "note": "24, 28 も同様"
+    },
+    {
+     "step": 23,
+     "values": {
+      "j": "28",
+      "count": "4"
+     },
+     "note": "32 は m を超えるので終わり。4 を返す"
+    }
+   ]
+  }
+ },
+ "P-R07-02": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型: change(整数型: n)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: count ← 0"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: rest ← n"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "while",
+    "text": "while ( [[]] )"
+   },
+   {
+    "n": 5,
+    "indent": 2,
+    "kind": "assign",
+    "text": "count ← count ＋ (rest ÷ 5 の商) ＋ 1"
+   },
+   {
+    "n": 6,
+    "indent": 2,
+    "kind": "assign",
+    "text": "rest ← rest － 10"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "endwhile",
+    "text": "endwhile"
+   },
+   {
+    "n": 8,
+    "indent": 1,
+    "kind": "return",
+    "text": "return count"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "rest",
+     "label": "rest",
+     "type": "int"
+    },
+    {
+     "key": "count",
+     "label": "count",
+     "type": "int"
+    }
+   ],
+   "initial": {
+    "step": 3,
+    "values": {
+     "rest": "12",
+     "count": "0"
+    }
+   },
+   "expected": [
+    {
+     "step": 3,
+     "values": {
+      "rest": "12",
+      "count": "0"
+     },
+     "note": "n＝12"
+    },
+    {
+     "step": 5,
+     "values": {
+      "rest": "12",
+      "count": "3"
+     },
+     "note": "10円玉0枚。(12÷5の商)＋1 ＝ 3"
+    },
+    {
+     "step": 6,
+     "values": {
+      "rest": "2",
+      "count": "3"
+     }
+    },
+    {
+     "step": 5,
+     "values": {
+      "rest": "2",
+      "count": "4"
+     },
+     "note": "10円玉1枚。(2÷5の商)＋1 ＝ 1"
+    },
+    {
+     "step": 6,
+     "values": {
+      "rest": "－8",
+      "count": "4"
+     },
+     "note": "rest ≧ 0 が偽になり終わる"
+    },
+    {
+     "step": 8,
+     "values": {
+      "count": "4"
+     },
+     "note": "4 を返す"
+    }
+   ]
+  }
+ },
+ "P-R07-03": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "global",
+    "text": "大域: 整数型: stackPos ← 3"
+   },
+   {
+    "n": 2,
+    "indent": 0,
+    "kind": "global",
+    "text": "大域: 整数型の配列: stack ← {4, 3, 未定義の値, 未定義の値}"
+   },
+   {
+    "n": 3,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○論理型: push(整数型: inputData)"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "if",
+    "text": "if (stackPos ≦ stackの要素数)"
+   },
+   {
+    "n": 5,
+    "indent": 2,
+    "kind": "assign",
+    "text": "stack[ [[a]] ] ← inputData"
+   },
+   {
+    "n": 6,
+    "indent": 2,
+    "kind": "assign",
+    "text": "stackPos ← stackPos ＋ 1"
+   },
+   {
+    "n": 7,
+    "indent": 2,
+    "kind": "return",
+    "text": "return true"
+   },
+   {
+    "n": 8,
+    "indent": 1,
+    "kind": "else",
+    "text": "else"
+   },
+   {
+    "n": 9,
+    "indent": 2,
+    "kind": "return",
+    "text": "return false"
+   },
+   {
+    "n": 10,
+    "indent": 1,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 11,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型: pop()"
+   },
+   {
+    "n": 12,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: popData ← 未定義の値"
+   },
+   {
+    "n": 13,
+    "indent": 1,
+    "kind": "if",
+    "text": "if (stackPos ＞ 1)"
+   },
+   {
+    "n": 14,
+    "indent": 2,
+    "kind": "assign",
+    "text": "stackPos ← [[b]]"
+   },
+   {
+    "n": 15,
+    "indent": 2,
+    "kind": "assign",
+    "text": "popData ← stack[stackPos]"
+   },
+   {
+    "n": 16,
+    "indent": 2,
+    "kind": "assign",
+    "text": "stack[stackPos] ← 未定義の値"
+   },
+   {
+    "n": 17,
+    "indent": 1,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 18,
+    "indent": 1,
+    "kind": "return",
+    "text": "return popData"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "stackPos",
+     "label": "stackPos",
+     "type": "int"
+    },
+    {
+     "key": "stack",
+     "label": "stack",
+     "type": "object"
+    },
+    {
+     "key": "ret",
+     "label": "戻り値",
+     "type": "note"
+    }
+   ],
+   "initial": {
+    "step": 2,
+    "values": {
+     "stackPos": "3",
+     "stack": "{4, 3, 未定義, 未定義}"
+    }
+   },
+   "expected": [
+    {
+     "step": 2,
+     "values": {
+      "stackPos": "3",
+      "stack": "{4, 3, 未定義, 未定義}"
+     },
+     "note": "初期状態"
+    },
+    {
+     "step": 5,
+     "values": {
+      "stackPos": "3",
+      "stack": "{4, 3, 5, 未定義}"
+     },
+     "note": "push(5)。stack[3] に置く"
+    },
+    {
+     "step": 6,
+     "values": {
+      "stackPos": "4",
+      "ret": "true"
+     }
+    },
+    {
+     "step": 5,
+     "values": {
+      "stackPos": "4",
+      "stack": "{4, 3, 5, 6}"
+     },
+     "note": "push(6)"
+    },
+    {
+     "step": 6,
+     "values": {
+      "stackPos": "5",
+      "ret": "true"
+     }
+    },
+    {
+     "step": 4,
+     "values": {
+      "stackPos": "5"
+     },
+     "note": "次の push は stackPos ＞ 4 なので false"
+    },
+    {
+     "step": 14,
+     "values": {
+      "stackPos": "4"
+     },
+     "note": "pop。先に位置を1戻す"
+    },
+    {
+     "step": 16,
+     "values": {
+      "stackPos": "4",
+      "stack": "{4, 3, 5, 未定義}",
+      "ret": "6"
+     },
+     "note": "6 を取り出す"
+    }
+   ]
+  }
+ },
+ "P-R07-04": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "comment",
+    "text": "/* keyは，要素数1以上の配列である */"
+   },
+   {
+    "n": 2,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型の配列: search(文字型の配列: data, 文字型の配列: key)"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i, j, lenData, lenKey"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型の配列: result ← {} // 要素数0の配列"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "assign",
+    "text": "lenData ← dataの要素数"
+   },
+   {
+    "n": 6,
+    "indent": 1,
+    "kind": "assign",
+    "text": "lenKey ← keyの要素数"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "comment",
+    "text": "/* (lenData － lenKey ＋ 1) が0以下のときは繰返し処理を実行しない */"
+   },
+   {
+    "n": 8,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (i を 1 から (lenData － lenKey ＋ 1) まで 1 ずつ増やす)"
+   },
+   {
+    "n": 9,
+    "indent": 2,
+    "kind": "for",
+    "text": "for (j を 1 から lenKey まで 1 ずつ増やす) // α"
+   },
+   {
+    "n": 10,
+    "indent": 3,
+    "kind": "if",
+    "text": "if (data[i ＋ j － 1] が key[j] と等しい) /*** β ***/"
+   },
+   {
+    "n": 11,
+    "indent": 4,
+    "kind": "if",
+    "text": "if (j が lenKey と等しい)"
+   },
+   {
+    "n": 12,
+    "indent": 5,
+    "kind": "stmt",
+    "text": "resultの末尾 に iの値 を追加する"
+   },
+   {
+    "n": 13,
+    "indent": 4,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 14,
+    "indent": 3,
+    "kind": "else",
+    "text": "else"
+   },
+   {
+    "n": 15,
+    "indent": 4,
+    "kind": "break",
+    "text": "αの行から始まる繰返し処理を終了する"
+   },
+   {
+    "n": 16,
+    "indent": 3,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 17,
+    "indent": 2,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 18,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 19,
+    "indent": 1,
+    "kind": "return",
+    "text": "return result"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "j",
+     "label": "j",
+     "type": "int"
+    },
+    {
+     "key": "hit",
+     "label": "βが真になった回数",
+     "type": "int"
+    },
+    {
+     "key": "result",
+     "label": "result",
+     "type": "object"
+    }
+   ],
+   "initial": {
+    "step": 4,
+    "values": {
+     "hit": "0",
+     "result": "{}"
+    }
+   },
+   "expected": [
+    {
+     "step": 4,
+     "values": {
+      "hit": "0",
+      "result": "{}"
+     },
+     "note": "data は {\"a\",\"b\",\"a\",\"b\",\"c\",\"a\",\"b\",\"c\"}，key は {\"a\",\"b\",\"c\"}"
+    },
+    {
+     "step": 10,
+     "values": {
+      "i": "1",
+      "j": "2",
+      "hit": "2"
+     },
+     "note": "a, b は一致。j＝3 で c と a が外れて抜ける"
+    },
+    {
+     "step": 10,
+     "values": {
+      "i": "2",
+      "j": "1",
+      "hit": "2"
+     },
+     "note": "最初から外れる"
+    },
+    {
+     "step": 12,
+     "values": {
+      "i": "3",
+      "j": "3",
+      "hit": "5"
+     },
+     "note": "3文字とも一致。result に 3 を追加"
+    },
+    {
+     "step": 10,
+     "values": {
+      "i": "4",
+      "j": "1",
+      "hit": "5"
+     },
+     "note": "外れる"
+    },
+    {
+     "step": 10,
+     "values": {
+      "i": "5",
+      "j": "1",
+      "hit": "5"
+     },
+     "note": "外れる"
+    },
+    {
+     "step": 12,
+     "values": {
+      "i": "6",
+      "j": "3",
+      "hit": "8",
+      "result": "{3, 6}"
+     },
+     "note": "3文字とも一致。合計 8 回"
+    }
+   ]
+  }
+ },
+ "P-R07-05": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○実数型の二次元配列: f(実数型の二次元配列: data)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "実数型: t ← dataの要素の和"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: row ← dataの行数"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: col ← dataの列数"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "decl",
+    "text": "実数型の二次元配列: result ← {row行col列の 未定義の値}"
+   },
+   {
+    "n": 6,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: r, c"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (r を 1 から row まで 1 ずつ増やす)"
+   },
+   {
+    "n": 8,
+    "indent": 2,
+    "kind": "for",
+    "text": "for (c を 1 から col まで 1 ずつ増やす)"
+   },
+   {
+    "n": 9,
+    "indent": 3,
+    "kind": "assign",
+    "text": "result[r, c] ← (dataの行番号rの要素の和) × (dataの列番号cの要素の和) ÷ t"
+   },
+   {
+    "n": 10,
+    "indent": 2,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 11,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 12,
+    "indent": 1,
+    "kind": "return",
+    "text": "return result"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "r",
+     "label": "r",
+     "type": "int"
+    },
+    {
+     "key": "c",
+     "label": "c",
+     "type": "int"
+    },
+    {
+     "key": "rowsum",
+     "label": "r行の和",
+     "type": "int"
+    },
+    {
+     "key": "colsum",
+     "label": "c列の和",
+     "type": "int"
+    },
+    {
+     "key": "val",
+     "label": "result[r, c]",
+     "type": "real"
+    }
+   ],
+   "initial": {
+    "step": 2,
+    "values": {
+     "val": "t ＝ 154"
+    }
+   },
+   "expected": [
+    {
+     "step": 2,
+     "values": {
+      "val": "t ＝ 154"
+     },
+     "note": "82＋6＋58＋8"
+    },
+    {
+     "step": 9,
+     "values": {
+      "r": "1",
+      "c": "1",
+      "rowsum": "88",
+      "colsum": "140",
+      "val": "80"
+     },
+     "note": "88×140÷154。これが空欄 a"
+    },
+    {
+     "step": 9,
+     "values": {
+      "r": "1",
+      "c": "2",
+      "rowsum": "88",
+      "colsum": "14",
+      "val": "8"
+     }
+    },
+    {
+     "step": 9,
+     "values": {
+      "r": "2",
+      "c": "1",
+      "rowsum": "66",
+      "colsum": "140",
+      "val": "60"
+     }
+    },
+    {
+     "step": 9,
+     "values": {
+      "r": "2",
+      "c": "2",
+      "rowsum": "66",
+      "colsum": "14",
+      "val": "6"
+     },
+     "note": "これが空欄 b"
+    },
+    {
+     "step": 12,
+     "values": {
+      "val": "合計 154"
+     },
+     "note": "元の表と合計が一致する"
+    }
+   ]
+  }
+ },
+ "P-R08-01": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "decl",
+    "text": "整数型の配列: data ← {1, 2, 3, 4, 5, 6, 7, 8, 9}"
+   },
+   {
+    "n": 2,
+    "indent": 0,
+    "kind": "decl",
+    "text": "整数型: top, i"
+   },
+   {
+    "n": 3,
+    "indent": 0,
+    "kind": "decl",
+    "text": "整数型: len ← dataの要素数"
+   },
+   {
+    "n": 4,
+    "indent": 0,
+    "kind": "assign",
+    "text": "top ← data[len]"
+   },
+   {
+    "n": 5,
+    "indent": 0,
+    "kind": "for",
+    "text": "for (i を [[]] )"
+   },
+   {
+    "n": 6,
+    "indent": 1,
+    "kind": "assign",
+    "text": "data[i] ← data[i － 1]"
+   },
+   {
+    "n": 7,
+    "indent": 0,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 8,
+    "indent": 0,
+    "kind": "assign",
+    "text": "data[1] ← top"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "top",
+     "label": "top",
+     "type": "int"
+    },
+    {
+     "key": "data",
+     "label": "data",
+     "type": "object"
+    }
+   ],
+   "initial": {
+    "step": 4,
+    "values": {
+     "top": "9",
+     "data": "{1, 2, 3, 4, 5, 6, 7, 8, 9}"
+    }
+   },
+   "expected": [
+    {
+     "step": 4,
+     "values": {
+      "top": "9",
+      "data": "{1, 2, 3, 4, 5, 6, 7, 8, 9}"
+     },
+     "note": "末尾の 9 を退避"
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "9",
+      "data": "{1, 2, 3, 4, 5, 6, 7, 8, 8}"
+     },
+     "note": "data[9] ← data[8]"
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "8",
+      "data": "{1, 2, 3, 4, 5, 6, 7, 7, 8}"
+     }
+    },
+    {
+     "ellipsis": true,
+     "note": "i＝7 から 3 まで同じ流れ"
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "2",
+      "data": "{1, 1, 2, 3, 4, 5, 6, 7, 8}"
+     },
+     "note": "ここで繰返し終了"
+    },
+    {
+     "step": 8,
+     "values": {
+      "data": "{9, 1, 2, 3, 4, 5, 6, 7, 8}"
+     },
+     "note": "先頭に top を入れる"
+    }
+   ]
+  }
+ },
+ "P-R08-02": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○8ビット型: complement(8ビット型: x)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "8ビット型: y"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "assign",
+    "text": "y ← [[]]"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "assign",
+    "text": "y ← y ＋ 00000001"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "return",
+    "text": "return y"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "x",
+     "label": "x",
+     "type": "string"
+    },
+    {
+     "key": "y",
+     "label": "y",
+     "type": "string"
+    },
+    {
+     "key": "dec",
+     "label": "y の10進",
+     "type": "int"
+    }
+   ],
+   "initial": {
+    "step": 2,
+    "values": {
+     "x": "00000011"
+    }
+   },
+   "expected": [
+    {
+     "step": 2,
+     "values": {
+      "x": "00000011"
+     },
+     "note": "10進で 3"
+    },
+    {
+     "step": 3,
+     "values": {
+      "x": "00000011",
+      "y": "11111100",
+      "dec": "252"
+     },
+     "note": "11111111 との排他的論理和で全ビット反転"
+    },
+    {
+     "step": 4,
+     "values": {
+      "y": "11111101",
+      "dec": "253"
+     },
+     "note": "1 を足す"
+    },
+    {
+     "step": 5,
+     "values": {
+      "y": "11111101"
+     },
+     "note": "00000011 ＋ 11111101 は桁あふれを無視すると 00000000"
+    }
+   ]
+  }
+ },
+ "P-R08-03": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型: func1(整数型: n)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "if",
+    "text": "if (nが2以下)"
+   },
+   {
+    "n": 3,
+    "indent": 2,
+    "kind": "return",
+    "text": "return 1"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "return",
+    "text": "return 2 × func1(n － 2) ＋ func1(n － 1)"
+   },
+   {
+    "n": 6,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型: func2(整数型: n)"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型の配列: data ← {1, 1, 1}"
+   },
+   {
+    "n": 8,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i"
+   },
+   {
+    "n": 9,
+    "indent": 1,
+    "kind": "comment",
+    "text": "/* nが3より小さいときは繰返し処理を実行しない */"
+   },
+   {
+    "n": 10,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (iを3からnまで1ずつ増やす)"
+   },
+   {
+    "n": 11,
+    "indent": 2,
+    "kind": "assign",
+    "text": "data[1] ← data[2]"
+   },
+   {
+    "n": 12,
+    "indent": 2,
+    "kind": "assign",
+    "text": "data[2] ← data[3]"
+   },
+   {
+    "n": 13,
+    "indent": 2,
+    "kind": "assign",
+    "text": "data[3] ← [[]]"
+   },
+   {
+    "n": 14,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 15,
+    "indent": 1,
+    "kind": "return",
+    "text": "return data[3]"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "data",
+     "label": "data",
+     "type": "object"
+    },
+    {
+     "key": "note",
+     "label": "対応する値",
+     "type": "note"
+    }
+   ],
+   "initial": {
+    "step": 7,
+    "values": {
+     "data": "{1, 1, 1}"
+    }
+   },
+   "expected": [
+    {
+     "step": 7,
+     "values": {
+      "data": "{1, 1, 1}"
+     },
+     "note": "n＝5 として追う"
+    },
+    {
+     "step": 12,
+     "values": {
+      "i": "3",
+      "data": "{1, 1, 1}"
+     },
+     "note": "ずらした直後。data[1]＝func1(1)，data[2]＝func1(2)"
+    },
+    {
+     "step": 13,
+     "values": {
+      "i": "3",
+      "data": "{1, 1, 3}",
+      "note": "func1(3)＝3"
+     },
+     "note": "2×1＋1"
+    },
+    {
+     "step": 13,
+     "values": {
+      "i": "4",
+      "data": "{1, 3, 5}",
+      "note": "func1(4)＝5"
+     },
+     "note": "2×1＋3"
+    },
+    {
+     "step": 13,
+     "values": {
+      "i": "5",
+      "data": "{3, 5, 11}",
+      "note": "func1(5)＝11"
+     },
+     "note": "2×3＋5"
+    },
+    {
+     "step": 15,
+     "values": {
+      "data": "{3, 5, 11}"
+     },
+     "note": "data[3] の 11 を返す"
+    }
+   ]
+  }
+ },
+ "P-R08-04": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "global",
+    "text": "大域: 整数型の配列: dataList ← {10, 30, 20, 40, 未定義の値}"
+   },
+   {
+    "n": 2,
+    "indent": 0,
+    "kind": "global",
+    "text": "大域: 整数型の配列: pointerList ← {3, 4, 2, 未定義の値, 未定義の値}"
+   },
+   {
+    "n": 3,
+    "indent": 0,
+    "kind": "blank",
+    "text": ""
+   },
+   {
+    "n": 4,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型の配列: orderList()"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i, p ← 1"
+   },
+   {
+    "n": 6,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型の配列: linearList ← {} // 要素数0の配列"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (i を 1 から dataListの要素数 まで 1 ずつ増やす)"
+   },
+   {
+    "n": 8,
+    "indent": 2,
+    "kind": "stmt",
+    "text": "linearListの末尾 に dataList[p]の値 を追加する"
+   },
+   {
+    "n": 9,
+    "indent": 2,
+    "kind": "if",
+    "text": "if ([[a]] が 未定義)"
+   },
+   {
+    "n": 10,
+    "indent": 3,
+    "kind": "break",
+    "text": "繰返し処理を終了する"
+   },
+   {
+    "n": 11,
+    "indent": 2,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 12,
+    "indent": 2,
+    "kind": "assign",
+    "text": "p ← [[b]]"
+   },
+   {
+    "n": 13,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 14,
+    "indent": 1,
+    "kind": "return",
+    "text": "return linearList"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "p",
+     "label": "p",
+     "type": "int"
+    },
+    {
+     "key": "linearList",
+     "label": "linearList",
+     "type": "object"
+    }
+   ],
+   "initial": {
+    "step": 6,
+    "values": {
+     "p": "1",
+     "linearList": "{}"
+    }
+   },
+   "expected": [
+    {
+     "step": 6,
+     "values": {
+      "p": "1",
+      "linearList": "{}"
+     },
+     "note": "初期状態"
+    },
+    {
+     "step": 8,
+     "values": {
+      "i": "1",
+      "p": "1",
+      "linearList": "{10}"
+     },
+     "note": "dataList[1] の 10 を追加"
+    },
+    {
+     "step": 9,
+     "values": {
+      "i": "1",
+      "p": "1",
+      "linearList": "{10}"
+     },
+     "note": "pointerList[1] は 3。未定義ではない"
+    },
+    {
+     "step": 12,
+     "values": {
+      "i": "1",
+      "p": "3",
+      "linearList": "{10}"
+     },
+     "note": "p に 3 を代入"
+    },
+    {
+     "step": 8,
+     "values": {
+      "i": "2",
+      "p": "3",
+      "linearList": "{10, 20}"
+     },
+     "note": "dataList[3] の 20 を追加"
+    },
+    {
+     "step": 12,
+     "values": {
+      "i": "2",
+      "p": "2",
+      "linearList": "{10, 20}"
+     },
+     "note": "pointerList[3] は 2"
+    },
+    {
+     "step": 8,
+     "values": {
+      "i": "3",
+      "p": "2",
+      "linearList": "{10, 20, 30}"
+     },
+     "note": "dataList[2] の 30 を追加"
+    },
+    {
+     "step": 12,
+     "values": {
+      "i": "3",
+      "p": "4",
+      "linearList": "{10, 20, 30}"
+     },
+     "note": "pointerList[2] は 4"
+    },
+    {
+     "step": 8,
+     "values": {
+      "i": "4",
+      "p": "4",
+      "linearList": "{10, 20, 30, 40}"
+     },
+     "note": "dataList[4] の 40 を追加"
+    },
+    {
+     "step": 10,
+     "values": {
+      "i": "4",
+      "p": "4",
+      "linearList": "{10, 20, 30, 40}"
+     },
+     "note": "pointerList[4] は未定義。繰返しを抜ける"
+    },
+    {
+     "step": 14,
+     "values": {
+      "i": "4",
+      "p": "4",
+      "linearList": "{10, 20, 30, 40}"
+     },
+     "note": "linearList を返す"
+    }
+   ]
+  }
+ },
+ "P-R08-05": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型配列の配列: oneHotEncoding(文字列型の配列: colors)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i, j, k"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "文字列型の配列: colorVector ← {} // 要素数0の配列"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型の配列: tempVector"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型配列の配列: oneHotVector ← {} // 要素数0の配列"
+   },
+   {
+    "n": 6,
+    "indent": 1,
+    "kind": "comment",
+    "text": "/* 名前一覧の作成 */"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (i を 1 から colorsの要素数 まで 1 ずつ増やす)"
+   },
+   {
+    "n": 8,
+    "indent": 2,
+    "kind": "if",
+    "text": "if (colorVector の要素のいずれにも colors[i]の値 が格納されていない)"
+   },
+   {
+    "n": 9,
+    "indent": 3,
+    "kind": "stmt",
+    "text": "colorVectorの末尾 に [[a]] を追加する"
+   },
+   {
+    "n": 10,
+    "indent": 2,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 11,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 12,
+    "indent": 1,
+    "kind": "comment",
+    "text": "/* One-Hot表現への変換 */"
+   },
+   {
+    "n": 13,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (j を 1 から colorsの要素数 まで 1 ずつ増やす)"
+   },
+   {
+    "n": 14,
+    "indent": 2,
+    "kind": "assign",
+    "text": "tempVector ← {} // 要素数0の配列"
+   },
+   {
+    "n": 15,
+    "indent": 2,
+    "kind": "for",
+    "text": "for (k を 1 から colorVectorの要素数 まで 1 ずつ増やす)"
+   },
+   {
+    "n": 16,
+    "indent": 3,
+    "kind": "if",
+    "text": "if ( [[b]] )"
+   },
+   {
+    "n": 17,
+    "indent": 4,
+    "kind": "stmt",
+    "text": "tempVectorの末尾 に 1 を追加する"
+   },
+   {
+    "n": 18,
+    "indent": 3,
+    "kind": "else",
+    "text": "else"
+   },
+   {
+    "n": 19,
+    "indent": 4,
+    "kind": "stmt",
+    "text": "tempVectorの末尾 に 0 を追加する"
+   },
+   {
+    "n": 20,
+    "indent": 3,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 21,
+    "indent": 2,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 22,
+    "indent": 2,
+    "kind": "stmt",
+    "text": "oneHotVectorの末尾 に tempVector を追加する"
+   },
+   {
+    "n": 23,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 24,
+    "indent": 1,
+    "kind": "return",
+    "text": "return oneHotVector"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i / j",
+     "type": "int"
+    },
+    {
+     "key": "k",
+     "label": "k",
+     "type": "int"
+    },
+    {
+     "key": "colorVector",
+     "label": "colorVector",
+     "type": "object"
+    },
+    {
+     "key": "tempVector",
+     "label": "tempVector",
+     "type": "object"
+    },
+    {
+     "key": "oneHotVector",
+     "label": "oneHotVector",
+     "type": "object"
+    }
+   ],
+   "initial": {
+    "step": 5,
+    "values": {
+     "colorVector": "{}",
+     "oneHotVector": "{}"
+    }
+   },
+   "expected": [
+    {
+     "step": 5,
+     "values": {
+      "colorVector": "{}",
+      "oneHotVector": "{}"
+     },
+     "note": "図の例 colors ＝ {\"Red\", \"Green\", \"Blue\", \"Red\"}"
+    },
+    {
+     "step": 9,
+     "values": {
+      "i": "1",
+      "colorVector": "{\"Red\"}"
+     }
+    },
+    {
+     "step": 9,
+     "values": {
+      "i": "2",
+      "colorVector": "{\"Red\", \"Green\"}"
+     }
+    },
+    {
+     "step": 9,
+     "values": {
+      "i": "3",
+      "colorVector": "{\"Red\", \"Green\", \"Blue\"}"
+     },
+     "note": "色は 3 種類に定まった"
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "4",
+      "colorVector": "{\"Red\", \"Green\", \"Blue\"}"
+     },
+     "note": "\"Red\" は既にあるので足さない"
+    },
+    {
+     "step": 22,
+     "values": {
+      "i": "1",
+      "k": "3",
+      "tempVector": "{1, 0, 0}",
+      "oneHotVector": "{{1, 0, 0}}"
+     },
+     "note": "1番目の \"Red\""
+    },
+    {
+     "step": 22,
+     "values": {
+      "i": "2",
+      "k": "3",
+      "tempVector": "{0, 1, 0}",
+      "oneHotVector": "{{1,0,0}, {0,1,0}}"
+     }
+    },
+    {
+     "ellipsis": true,
+     "note": "3番目の \"Blue\" は {0, 0, 1}，4番目の \"Red\" は {1, 0, 0}"
+    },
+    {
+     "step": 24,
+     "values": {
+      "oneHotVector": "{{1,0,0}, {0,1,0}, {0,0,1}, {1,0,0}}"
+     },
+     "note": "これを返す"
+    }
+   ]
+  }
+ },
+ "P-SAMPLE-01": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "decl",
+    "text": "整数型: x ← 1"
+   },
+   {
+    "n": 2,
+    "indent": 0,
+    "kind": "decl",
+    "text": "整数型: y ← 2"
+   },
+   {
+    "n": 3,
+    "indent": 0,
+    "kind": "decl",
+    "text": "整数型: z ← 3"
+   },
+   {
+    "n": 4,
+    "indent": 0,
+    "kind": "assign",
+    "text": "x ← y"
+   },
+   {
+    "n": 5,
+    "indent": 0,
+    "kind": "assign",
+    "text": "y ← z"
+   },
+   {
+    "n": 6,
+    "indent": 0,
+    "kind": "assign",
+    "text": "z ← x"
+   },
+   {
+    "n": 7,
+    "indent": 0,
+    "kind": "stmt",
+    "text": "yの値 と zの値 をこの順にコンマ区切りで出力する"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "x",
+     "label": "x",
+     "type": "int"
+    },
+    {
+     "key": "y",
+     "label": "y",
+     "type": "int"
+    },
+    {
+     "key": "z",
+     "label": "z",
+     "type": "int"
+    }
+   ],
+   "initial": {
+    "step": 3,
+    "values": {
+     "x": "1",
+     "y": "2",
+     "z": "3"
+    }
+   },
+   "expected": [
+    {
+     "step": 3,
+     "values": {
+      "x": "1",
+      "y": "2",
+      "z": "3"
+     },
+     "note": "初期値"
+    },
+    {
+     "step": 4,
+     "values": {
+      "x": "2",
+      "y": "2",
+      "z": "3"
+     },
+     "note": "x ← y"
+    },
+    {
+     "step": 5,
+     "values": {
+      "x": "2",
+      "y": "3",
+      "z": "3"
+     },
+     "note": "y ← z"
+    },
+    {
+     "step": 6,
+     "values": {
+      "x": "2",
+      "y": "3",
+      "z": "2"
+     },
+     "note": "z ← x。x はもう 2 になっている"
+    },
+    {
+     "step": 7,
+     "values": {
+      "y": "3",
+      "z": "2"
+     },
+     "note": "“3,2” と出力"
+    }
+   ]
+  }
+ },
+ "P-SAMPLE-02": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○文字列型: fizzBuzz(整数型: num)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "文字列型: result"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "if",
+    "text": "if (num が [[a]] で割り切れる)"
+   },
+   {
+    "n": 4,
+    "indent": 2,
+    "kind": "assign",
+    "text": "result ← \" [[a]] で割り切れる\""
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "elseif",
+    "text": "elseif (num が [[b]] で割り切れる)"
+   },
+   {
+    "n": 6,
+    "indent": 2,
+    "kind": "assign",
+    "text": "result ← \" [[b]] で割り切れる\""
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "elseif",
+    "text": "elseif (num が [[c]] で割り切れる)"
+   },
+   {
+    "n": 8,
+    "indent": 2,
+    "kind": "assign",
+    "text": "result ← \" [[c]] で割り切れる\""
+   },
+   {
+    "n": 9,
+    "indent": 1,
+    "kind": "else",
+    "text": "else"
+   },
+   {
+    "n": 10,
+    "indent": 2,
+    "kind": "assign",
+    "text": "result ← \"3 でも 5 でも割り切れない\""
+   },
+   {
+    "n": 11,
+    "indent": 1,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 12,
+    "indent": 1,
+    "kind": "return",
+    "text": "return result"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "num",
+     "label": "num",
+     "type": "int"
+    },
+    {
+     "key": "hit",
+     "label": "真になった条件",
+     "type": "note"
+    },
+    {
+     "key": "result",
+     "label": "result",
+     "type": "string"
+    }
+   ],
+   "initial": {
+    "step": 2,
+    "values": {}
+   },
+   "expected": [
+    {
+     "step": 3,
+     "values": {
+      "num": "15",
+      "hit": "1つ目（3 と 5）"
+     },
+     "note": "最も限定的な条件を先に見る"
+    },
+    {
+     "step": 4,
+     "values": {
+      "num": "15",
+      "result": "“3 と 5 で割り切れる”"
+     }
+    },
+    {
+     "step": 5,
+     "values": {
+      "num": "9",
+      "hit": "2つ目（3）"
+     },
+     "note": "1つ目は偽"
+    },
+    {
+     "step": 6,
+     "values": {
+      "num": "9",
+      "result": "“3 で割り切れる”"
+     }
+    },
+    {
+     "step": 8,
+     "values": {
+      "num": "10",
+      "result": "“5 で割り切れる”"
+     },
+     "note": "3つ目で真"
+    },
+    {
+     "step": 10,
+     "values": {
+      "num": "7",
+      "result": "“3 でも 5 でも割り切れない”"
+     },
+     "note": "else に落ちる"
+    }
+   ]
+  }
+ },
+ "P-SAMPLE-03": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型の配列: makeNewArray(整数型の配列: in)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型の配列: out ← {} // 要素数0の配列"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i, tail"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "stmt",
+    "text": "outの末尾 に in[1]の値 を追加する"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (i を 2 から inの要素数 まで 1 ずつ増やす)"
+   },
+   {
+    "n": 6,
+    "indent": 2,
+    "kind": "assign",
+    "text": "tail ← out[outの要素数]"
+   },
+   {
+    "n": 7,
+    "indent": 2,
+    "kind": "stmt",
+    "text": "outの末尾 に (tail ＋ in[i]) の結果を追加する"
+   },
+   {
+    "n": 8,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 9,
+    "indent": 1,
+    "kind": "return",
+    "text": "return out"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "tail",
+     "label": "tail",
+     "type": "int"
+    },
+    {
+     "key": "out",
+     "label": "out",
+     "type": "object"
+    }
+   ],
+   "initial": {
+    "step": 4,
+    "values": {
+     "out": "{3}"
+    }
+   },
+   "expected": [
+    {
+     "step": 4,
+     "values": {
+      "out": "{3}"
+     },
+     "note": "in ＝ {3, 2, 1, 6, 5, 4}。まず in[1] を置く"
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "2",
+      "tail": "3",
+      "out": "{3, 5}"
+     },
+     "note": "3 ＋ 2"
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "3",
+      "tail": "5",
+      "out": "{3, 5, 6}"
+     },
+     "note": "5 ＋ 1"
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "4",
+      "tail": "6",
+      "out": "{3, 5, 6, 12}"
+     },
+     "note": "6 ＋ 6"
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "5",
+      "tail": "12",
+      "out": "{3, 5, 6, 12, 17}"
+     },
+     "note": "12 ＋ 5。5番目は 17"
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "6",
+      "tail": "17",
+      "out": "{3, 5, 6, 12, 17, 21}"
+     }
+    }
+   ]
+  }
+ },
+ "P-SAMPLE-04": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型: gcd(整数型: num1, 整数型: num2)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: x ← num1"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: y ← num2"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "stmt",
+    "text": "[[a]]"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "if",
+    "text": "if ( [[b]] )"
+   },
+   {
+    "n": 6,
+    "indent": 2,
+    "kind": "assign",
+    "text": "x ← x － y"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "else",
+    "text": "else"
+   },
+   {
+    "n": 8,
+    "indent": 2,
+    "kind": "assign",
+    "text": "y ← y － x"
+   },
+   {
+    "n": 9,
+    "indent": 1,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 10,
+    "indent": 1,
+    "kind": "stmt",
+    "text": "[[c]]"
+   },
+   {
+    "n": 11,
+    "indent": 1,
+    "kind": "return",
+    "text": "return x"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "x",
+     "label": "x",
+     "type": "int"
+    },
+    {
+     "key": "y",
+     "label": "y",
+     "type": "int"
+    }
+   ],
+   "initial": {
+    "step": 3,
+    "values": {
+     "x": "30",
+     "y": "12"
+    }
+   },
+   "expected": [
+    {
+     "step": 3,
+     "values": {
+      "x": "30",
+      "y": "12"
+     },
+     "note": "gcd(30, 12) で追う"
+    },
+    {
+     "step": 6,
+     "values": {
+      "x": "18",
+      "y": "12"
+     },
+     "note": "x ＞ y なので x から引く"
+    },
+    {
+     "step": 6,
+     "values": {
+      "x": "6",
+      "y": "12"
+     },
+     "note": "まだ x ＞ y"
+    },
+    {
+     "step": 8,
+     "values": {
+      "x": "6",
+      "y": "6"
+     },
+     "note": "今度は y のほうが大きいので y から引く"
+    },
+    {
+     "step": 11,
+     "values": {
+      "x": "6",
+      "y": "6"
+     },
+     "note": "x ＝ y になったので 6 を返す"
+    }
+   ]
+  }
+ },
+ "P-SAMPLE-05": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○実数型: calc(実数型: x, 実数型: y)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "return",
+    "text": "return [[]]"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "expr",
+     "label": "計算している式",
+     "type": "note"
+    },
+    {
+     "key": "val",
+     "label": "値",
+     "type": "real"
+    }
+   ],
+   "initial": {
+    "step": 1,
+    "values": {
+     "expr": "x＝3, y＝4 として追う"
+    }
+   },
+   "expected": [
+    {
+     "step": 1,
+     "values": {
+      "expr": "x＝3, y＝4 として追う"
+     }
+    },
+    {
+     "step": 2,
+     "values": {
+      "expr": "pow(x, 2)",
+      "val": "9"
+     }
+    },
+    {
+     "step": 2,
+     "values": {
+      "expr": "pow(y, 2)",
+      "val": "16"
+     }
+    },
+    {
+     "step": 2,
+     "values": {
+      "expr": "pow(x,2) ＋ pow(y,2)",
+      "val": "25"
+     }
+    },
+    {
+     "step": 2,
+     "values": {
+      "expr": "pow(25, 0.5)",
+      "val": "5"
+     },
+     "note": "これが戻り値"
+    }
+   ]
+  }
+ },
+ "P-SAMPLE-06": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○8 ビット型: rev(8 ビット型: byte)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "8 ビット型: rbyte ← byte"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "8 ビット型: r ← 00000000"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (i を 1 から 8 まで 1 ずつ増やす)"
+   },
+   {
+    "n": 6,
+    "indent": 2,
+    "kind": "stmt",
+    "text": "[[]]"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 8,
+    "indent": 1,
+    "kind": "return",
+    "text": "return r"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "rbyte",
+     "label": "rbyte",
+     "type": "string"
+    },
+    {
+     "key": "r",
+     "label": "r",
+     "type": "string"
+    }
+   ],
+   "initial": {
+    "step": 3,
+    "values": {
+     "rbyte": "01001011",
+     "r": "00000000"
+    }
+   },
+   "expected": [
+    {
+     "step": 3,
+     "values": {
+      "rbyte": "01001011",
+      "r": "00000000"
+     },
+     "note": "rev(01001011) で追う"
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "1",
+      "rbyte": "00100101",
+      "r": "00000001"
+     },
+     "note": "最下位の 1 を取り出す"
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "2",
+      "rbyte": "00010010",
+      "r": "00000011"
+     }
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "3",
+      "rbyte": "00001001",
+      "r": "00000110"
+     },
+     "note": "最下位が 0 なのでずれるだけ"
+    },
+    {
+     "ellipsis": true,
+     "note": "i＝4〜8 も同じ流れ"
+    },
+    {
+     "step": 8,
+     "values": {
+      "r": "11010010"
+     },
+     "note": "並びが逆になった"
+    }
+   ]
+  }
+ },
+ "P-SAMPLE-07": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型: factorial(整数型: n)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "if",
+    "text": "if (n ＝ 0)"
+   },
+   {
+    "n": 3,
+    "indent": 2,
+    "kind": "return",
+    "text": "return 1"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "return",
+    "text": "return [[]]"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "n",
+     "label": "n",
+     "type": "int"
+    },
+    {
+     "key": "dir",
+     "label": "呼出し／戻り",
+     "type": "note"
+    },
+    {
+     "key": "ret",
+     "label": "戻り値",
+     "type": "note"
+    }
+   ],
+   "initial": {
+    "step": 1,
+    "values": {
+     "n": "3",
+     "dir": "呼出し"
+    }
+   },
+   "expected": [
+    {
+     "step": 1,
+     "values": {
+      "n": "3",
+      "dir": "呼出し"
+     },
+     "note": "factorial(3)"
+    },
+    {
+     "step": 5,
+     "values": {
+      "n": "2",
+      "dir": "呼出し"
+     }
+    },
+    {
+     "step": 5,
+     "values": {
+      "n": "1",
+      "dir": "呼出し"
+     }
+    },
+    {
+     "step": 5,
+     "values": {
+      "n": "0",
+      "dir": "呼出し"
+     }
+    },
+    {
+     "step": 3,
+     "values": {
+      "n": "0",
+      "dir": "戻り",
+      "ret": "1"
+     },
+     "note": "ここで止まる"
+    },
+    {
+     "step": 5,
+     "values": {
+      "n": "1",
+      "dir": "戻り",
+      "ret": "1 × 1 ＝ 1"
+     }
+    },
+    {
+     "step": 5,
+     "values": {
+      "n": "2",
+      "dir": "戻り",
+      "ret": "2 × 1 ＝ 2"
+     }
+    },
+    {
+     "step": 5,
+     "values": {
+      "n": "3",
+      "dir": "戻り",
+      "ret": "3 × 2 ＝ 6"
+     },
+     "note": "これが答え"
+    }
+   ]
+  }
+ },
+ "P-SAMPLE-08": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○prioSched()"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "PrioQueue: prioQueue ← PrioQueue()"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "call",
+    "text": "prioQueue.enqueue(\"A\", 1)"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "call",
+    "text": "prioQueue.enqueue(\"B\", 2)"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "call",
+    "text": "prioQueue.enqueue(\"C\", 2)"
+   },
+   {
+    "n": 6,
+    "indent": 1,
+    "kind": "call",
+    "text": "prioQueue.enqueue(\"D\", 3)"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "stmt",
+    "text": "prioQueue.dequeue() /* 戻り値は使用しない */"
+   },
+   {
+    "n": 8,
+    "indent": 1,
+    "kind": "stmt",
+    "text": "prioQueue.dequeue() /* 戻り値は使用しない */"
+   },
+   {
+    "n": 9,
+    "indent": 1,
+    "kind": "call",
+    "text": "prioQueue.enqueue(\"D\", 3)"
+   },
+   {
+    "n": 10,
+    "indent": 1,
+    "kind": "call",
+    "text": "prioQueue.enqueue(\"B\", 2)"
+   },
+   {
+    "n": 11,
+    "indent": 1,
+    "kind": "stmt",
+    "text": "prioQueue.dequeue() /* 戻り値は使用しない */"
+   },
+   {
+    "n": 12,
+    "indent": 1,
+    "kind": "stmt",
+    "text": "prioQueue.dequeue() /* 戻り値は使用しない */"
+   },
+   {
+    "n": 13,
+    "indent": 1,
+    "kind": "call",
+    "text": "prioQueue.enqueue(\"C\", 2)"
+   },
+   {
+    "n": 14,
+    "indent": 1,
+    "kind": "call",
+    "text": "prioQueue.enqueue(\"A\", 1)"
+   },
+   {
+    "n": 15,
+    "indent": 1,
+    "kind": "while",
+    "text": "while (prioQueue.size() が 0 と等しくない)"
+   },
+   {
+    "n": 16,
+    "indent": 2,
+    "kind": "stmt",
+    "text": "prioQueue.dequeue() の戻り値を出力"
+   },
+   {
+    "n": 17,
+    "indent": 1,
+    "kind": "endwhile",
+    "text": "endwhile"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "op",
+     "label": "操作",
+     "type": "note"
+    },
+    {
+     "key": "queue",
+     "label": "キューの中身（優先度順）",
+     "type": "object"
+    },
+    {
+     "key": "out",
+     "label": "出力",
+     "type": "output"
+    }
+   ],
+   "initial": {
+    "step": 2,
+    "values": {
+     "queue": "（空）"
+    }
+   },
+   "expected": [
+    {
+     "step": 2,
+     "values": {
+      "op": "生成",
+      "queue": "（空）"
+     }
+    },
+    {
+     "step": 6,
+     "values": {
+      "op": "A,B,C,D を追加",
+      "queue": "A(1), B(2), C(2), D(3)"
+     }
+    },
+    {
+     "step": 8,
+     "values": {
+      "op": "dequeue ×2",
+      "queue": "C(2), D(3)"
+     },
+     "note": "A と B が出る。戻り値は使わない"
+    },
+    {
+     "step": 10,
+     "values": {
+      "op": "D(3), B(2) を追加",
+      "queue": "C(2), B(2), D(3), D(3)"
+     },
+     "note": "同じ優先度 2 では C が先"
+    },
+    {
+     "step": 12,
+     "values": {
+      "op": "dequeue ×2",
+      "queue": "D(3), D(3)"
+     },
+     "note": "C と B が出る"
+    },
+    {
+     "step": 14,
+     "values": {
+      "op": "C(2), A(1) を追加",
+      "queue": "A(1), C(2), D(3), D(3)"
+     }
+    },
+    {
+     "step": 16,
+     "values": {
+      "op": "空になるまで出力",
+      "out": "“A”，“C”，“D”，“D”"
+     },
+     "note": "これが答え"
+    }
+   ]
+  }
+ },
+ "P-SAMPLE-09": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "global",
+    "text": "大域: 整数型配列の配列: tree ← {{2, 3}, {4, 5}, {6, 7}, {8, 9}, {10, 11}, {12, 13}, {14}, {}, {}, {}, {}, {}, {}, {}} // {}は要素数0の配列"
+   },
+   {
+    "n": 2,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○order(整数型: n)"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "if",
+    "text": "if (tree[n]の要素数 が 2 と等しい)"
+   },
+   {
+    "n": 4,
+    "indent": 2,
+    "kind": "call",
+    "text": "order(tree[n][1])"
+   },
+   {
+    "n": 5,
+    "indent": 2,
+    "kind": "stmt",
+    "text": "nを出力"
+   },
+   {
+    "n": 6,
+    "indent": 2,
+    "kind": "call",
+    "text": "order(tree[n][2])"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "elseif",
+    "text": "elseif (tree[n]の要素数 が 1 と等しい)"
+   },
+   {
+    "n": 8,
+    "indent": 2,
+    "kind": "call",
+    "text": "order(tree[n][1])"
+   },
+   {
+    "n": 9,
+    "indent": 2,
+    "kind": "stmt",
+    "text": "nを出力"
+   },
+   {
+    "n": 10,
+    "indent": 1,
+    "kind": "else",
+    "text": "else"
+   },
+   {
+    "n": 11,
+    "indent": 2,
+    "kind": "stmt",
+    "text": "nを出力"
+   },
+   {
+    "n": 12,
+    "indent": 1,
+    "kind": "endif",
+    "text": "endif"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "n",
+     "label": "n",
+     "type": "int"
+    },
+    {
+     "key": "dir",
+     "label": "呼出し／出力",
+     "type": "note"
+    },
+    {
+     "key": "out",
+     "label": "出力",
+     "type": "output"
+    }
+   ],
+   "initial": {
+    "step": 2,
+    "values": {
+     "n": "1",
+     "dir": "order(1) を呼ぶ"
+    }
+   },
+   "expected": [
+    {
+     "step": 2,
+     "values": {
+      "n": "1",
+      "dir": "order(1)"
+     },
+     "note": "tree[1] ＝ {2, 3}"
+    },
+    {
+     "step": 4,
+     "values": {
+      "n": "2",
+      "dir": "order(2)"
+     },
+     "note": "左の子へ降りる"
+    },
+    {
+     "step": 4,
+     "values": {
+      "n": "4",
+      "dir": "order(4)"
+     }
+    },
+    {
+     "step": 4,
+     "values": {
+      "n": "8",
+      "dir": "order(8)"
+     },
+     "note": "tree[8] は要素数 0"
+    },
+    {
+     "step": 11,
+     "values": {
+      "n": "8",
+      "dir": "出力",
+      "out": "8"
+     },
+     "note": "葉なのでここで出力"
+    },
+    {
+     "step": 5,
+     "values": {
+      "n": "4",
+      "dir": "出力",
+      "out": "8, 4"
+     },
+     "note": "左を出し終えたので自分を出す"
+    },
+    {
+     "step": 11,
+     "values": {
+      "n": "9",
+      "dir": "出力",
+      "out": "8, 4, 9"
+     }
+    },
+    {
+     "step": 5,
+     "values": {
+      "n": "2",
+      "dir": "出力",
+      "out": "8, 4, 9, 2"
+     }
+    },
+    {
+     "ellipsis": true,
+     "note": "右の部分木も同じ流れ"
+    },
+    {
+     "step": 5,
+     "values": {
+      "n": "1",
+      "dir": "出力",
+      "out": "8, 4, 9, 2, 10, 5, 11, 1, …"
+     },
+     "note": "根の 1 は左半分のあと"
+    }
+   ]
+  }
+ },
+ "P-SAMPLE-10": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "global",
+    "text": "大域: ListElement: listHead // リストの先頭要素が格納されている"
+   },
+   {
+    "n": 2,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○delNode(整数型: pos) /* posは，リストの要素数以下の正の整数 */"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "ListElement: prev"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "if",
+    "text": "if (pos が 1 と等しい)"
+   },
+   {
+    "n": 6,
+    "indent": 2,
+    "kind": "assign",
+    "text": "listHead ← listHead.next"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "else",
+    "text": "else"
+   },
+   {
+    "n": 8,
+    "indent": 2,
+    "kind": "assign",
+    "text": "prev ← listHead"
+   },
+   {
+    "n": 9,
+    "indent": 2,
+    "kind": "comment",
+    "text": "/* posが2と等しいときは繰返し処理を実行しない */"
+   },
+   {
+    "n": 10,
+    "indent": 2,
+    "kind": "for",
+    "text": "for (i を 2 から pos － 1 まで 1 ずつ増やす)"
+   },
+   {
+    "n": 11,
+    "indent": 3,
+    "kind": "assign",
+    "text": "prev ← prev.next"
+   },
+   {
+    "n": 12,
+    "indent": 2,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 13,
+    "indent": 2,
+    "kind": "assign",
+    "text": "prev.next ← [[]]"
+   },
+   {
+    "n": 14,
+    "indent": 1,
+    "kind": "endif",
+    "text": "endif"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "prev",
+     "label": "prev が指す要素",
+     "type": "note"
+    },
+    {
+     "key": "list",
+     "label": "リスト",
+     "type": "object"
+    }
+   ],
+   "initial": {
+    "step": 3,
+    "values": {
+     "list": "A → B → C → D"
+    }
+   },
+   "expected": [
+    {
+     "step": 3,
+     "values": {
+      "list": "A → B → C → D"
+     },
+     "note": "delNode(3) で C を削除する"
+    },
+    {
+     "step": 8,
+     "values": {
+      "prev": "A",
+      "list": "A → B → C → D"
+     },
+     "note": "pos が 1 でないので prev に先頭を置く"
+    },
+    {
+     "step": 11,
+     "values": {
+      "i": "2",
+      "prev": "B"
+     },
+     "note": "繰返しは1回だけ。prev が一つ手前に進む"
+    },
+    {
+     "step": 13,
+     "values": {
+      "prev": "B",
+      "list": "A → B → D"
+     },
+     "note": "prev.next ← prev.next.next で C が外れる"
+    }
+   ]
+  }
+ },
+ "P-SAMPLE-11": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型の配列: binSort(整数型の配列: data)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: n ← dataの要素数"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型の配列: bins ← {n個の未定義の値}"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (i を 1 から n まで 1 ずつ増やす)"
+   },
+   {
+    "n": 6,
+    "indent": 2,
+    "kind": "assign",
+    "text": "bins[data[i]] ← data[i]"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 8,
+    "indent": 1,
+    "kind": "return",
+    "text": "return bins"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "v",
+     "label": "data[i]",
+     "type": "int"
+    },
+    {
+     "key": "bins",
+     "label": "bins",
+     "type": "object"
+    }
+   ],
+   "initial": {
+    "step": 3,
+    "values": {
+     "bins": "{未定義×6}"
+    }
+   },
+   "expected": [
+    {
+     "step": 3,
+     "values": {
+      "bins": "{未定義×6}"
+     },
+     "note": "data ＝ {2, 6, 3, 1, 4, 5}"
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "1",
+      "v": "2",
+      "bins": "{－, 2, －, －, －, －}"
+     },
+     "note": "bins[2] に 2"
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "2",
+      "v": "6",
+      "bins": "{－, 2, －, －, －, 6}"
+     }
+    },
+    {
+     "step": 6,
+     "values": {
+      "i": "3",
+      "v": "3",
+      "bins": "{－, 2, 3, －, －, 6}"
+     }
+    },
+    {
+     "ellipsis": true,
+     "note": "i＝4, 5, 6 で 1, 4, 5 が埋まる"
+    },
+    {
+     "step": 8,
+     "values": {
+      "bins": "{1, 2, 3, 4, 5, 6}"
+     },
+     "note": "未定義が残らず昇順になった"
+    }
+   ]
+  }
+ },
+ "P-SAMPLE-12": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○実数型: simRatio(文字型の配列: s1, 文字型の配列: s2)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i, cnt ← 0"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "if",
+    "text": "if (s1の要素数 ≠ s2の要素数)"
+   },
+   {
+    "n": 4,
+    "indent": 2,
+    "kind": "return",
+    "text": "return －1"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 6,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (i を 1 から s1の要素数 まで 1 ずつ増やす)"
+   },
+   {
+    "n": 7,
+    "indent": 2,
+    "kind": "if",
+    "text": "if ( [[]] )"
+   },
+   {
+    "n": 8,
+    "indent": 3,
+    "kind": "assign",
+    "text": "cnt ← cnt ＋ 1"
+   },
+   {
+    "n": 9,
+    "indent": 2,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 10,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 11,
+    "indent": 1,
+    "kind": "return",
+    "text": "return cnt ÷ s1の要素数 /* 実数として計算する */"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "s1i",
+     "label": "s1[i]",
+     "type": "string"
+    },
+    {
+     "key": "s2i",
+     "label": "s2[i]",
+     "type": "string"
+    },
+    {
+     "key": "cnt",
+     "label": "cnt",
+     "type": "int"
+    }
+   ],
+   "initial": {
+    "step": 2,
+    "values": {
+     "cnt": "0"
+    }
+   },
+   "expected": [
+    {
+     "step": 2,
+     "values": {
+      "cnt": "0"
+     },
+     "note": "s1 ＝ {\"a\",\"p\",\"p\",\"l\",\"e\"}，s2 ＝ {\"a\",\"p\",\"r\",\"i\",\"l\"}"
+    },
+    {
+     "step": 8,
+     "values": {
+      "i": "1",
+      "s1i": "“a”",
+      "s2i": "“a”",
+      "cnt": "1"
+     },
+     "note": "一致"
+    },
+    {
+     "step": 8,
+     "values": {
+      "i": "2",
+      "s1i": "“p”",
+      "s2i": "“p”",
+      "cnt": "2"
+     },
+     "note": "一致"
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "3",
+      "s1i": "“p”",
+      "s2i": "“r”",
+      "cnt": "2"
+     },
+     "note": "不一致"
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "4",
+      "s1i": "“l”",
+      "s2i": "“i”",
+      "cnt": "2"
+     }
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "5",
+      "s1i": "“e”",
+      "s2i": "“l”",
+      "cnt": "2"
+     }
+    },
+    {
+     "step": 11,
+     "values": {
+      "cnt": "2"
+     },
+     "note": "2 ÷ 5 ＝ 0.4 を返す"
+    }
+   ]
+  }
+ },
+ "P-SAMPLE-13": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型: search(整数型の配列: data, 整数型: target)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: low, high, middle"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "assign",
+    "text": "low ← 1"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "assign",
+    "text": "high ← dataの要素数"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "while",
+    "text": "while (low ≦ high)"
+   },
+   {
+    "n": 6,
+    "indent": 2,
+    "kind": "assign",
+    "text": "middle ← (low ＋ high) ÷ 2 の商"
+   },
+   {
+    "n": 7,
+    "indent": 2,
+    "kind": "if",
+    "text": "if (data[middle] ＜ target)"
+   },
+   {
+    "n": 8,
+    "indent": 3,
+    "kind": "assign",
+    "text": "low ← middle"
+   },
+   {
+    "n": 9,
+    "indent": 2,
+    "kind": "elseif",
+    "text": "elseif (data[middle] ＞ target)"
+   },
+   {
+    "n": 10,
+    "indent": 3,
+    "kind": "assign",
+    "text": "high ← middle"
+   },
+   {
+    "n": 11,
+    "indent": 2,
+    "kind": "else",
+    "text": "else"
+   },
+   {
+    "n": 12,
+    "indent": 3,
+    "kind": "return",
+    "text": "return middle"
+   },
+   {
+    "n": 13,
+    "indent": 2,
+    "kind": "endif",
+    "text": "endif"
+   },
+   {
+    "n": 14,
+    "indent": 1,
+    "kind": "endwhile",
+    "text": "endwhile"
+   },
+   {
+    "n": 15,
+    "indent": 1,
+    "kind": "return",
+    "text": "return －1"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "low",
+     "label": "low",
+     "type": "int"
+    },
+    {
+     "key": "high",
+     "label": "high",
+     "type": "int"
+    },
+    {
+     "key": "middle",
+     "label": "middle",
+     "type": "int"
+    },
+    {
+     "key": "cmp",
+     "label": "比較",
+     "type": "note"
+    }
+   ],
+   "initial": {
+    "step": 4,
+    "values": {
+     "low": "1",
+     "high": "2"
+    }
+   },
+   "expected": [
+    {
+     "step": 4,
+     "values": {
+      "low": "1",
+      "high": "2"
+     },
+     "note": "data ＝ {1, 2}，target ＝ 2"
+    },
+    {
+     "step": 6,
+     "values": {
+      "low": "1",
+      "high": "2",
+      "middle": "1"
+     },
+     "note": "(1＋2)÷2 の商 ＝ 1"
+    },
+    {
+     "step": 8,
+     "values": {
+      "low": "1",
+      "high": "2",
+      "middle": "1",
+      "cmp": "data[1] ＜ target"
+     },
+     "note": "low ← 1。変わらない"
+    },
+    {
+     "step": 6,
+     "values": {
+      "low": "1",
+      "high": "2",
+      "middle": "1"
+     },
+     "note": "まったく同じ状態に戻る"
+    },
+    {
+     "ellipsis": true,
+     "note": "以降は同じことの繰返し。無限ループになる"
+    }
+   ]
+  }
+ },
+ "P-SAMPLE-14": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○実数型: findRank(実数型の配列: sortedData, 実数型: p)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "assign",
+    "text": "i ← (p × (sortedDataの要素数 － 1)) の小数点以下を切り上げた値"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "return",
+    "text": "return sortedData[i ＋ 1]"
+   },
+   {
+    "n": 5,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○実数型の配列: summarize(実数型の配列: sortedData)"
+   },
+   {
+    "n": 6,
+    "indent": 1,
+    "kind": "decl",
+    "text": "実数型の配列: rankData ← {} /* 要素数0の配列 */"
+   },
+   {
+    "n": 7,
+    "indent": 1,
+    "kind": "decl",
+    "text": "実数型の配列: p ← {0, 0.25, 0.5, 0.75, 1}"
+   },
+   {
+    "n": 8,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i"
+   },
+   {
+    "n": 9,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (i を 1 から pの要素数 まで 1 ずつ増やす)"
+   },
+   {
+    "n": 10,
+    "indent": 2,
+    "kind": "stmt",
+    "text": "rankDataの末尾 に findRank(sortedData, p[i])の戻り値 を追加する"
+   },
+   {
+    "n": 11,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 12,
+    "indent": 1,
+    "kind": "return",
+    "text": "return rankData"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "p",
+     "label": "p[i]",
+     "type": "real"
+    },
+    {
+     "key": "calc",
+     "label": "p × 9",
+     "type": "note"
+    },
+    {
+     "key": "i",
+     "label": "i（切り上げ後）",
+     "type": "int"
+    },
+    {
+     "key": "ret",
+     "label": "sortedData[i＋1]",
+     "type": "real"
+    }
+   ],
+   "initial": {
+    "step": 7,
+    "values": {
+     "calc": "要素数は 10 なので p × 9"
+    }
+   },
+   "expected": [
+    {
+     "step": 7,
+     "values": {
+      "calc": "要素数は 10 なので p × 9"
+     },
+     "note": "p ＝ {0, 0.25, 0.5, 0.75, 1}"
+    },
+    {
+     "step": 3,
+     "values": {
+      "p": "0",
+      "calc": "0",
+      "i": "0",
+      "ret": "0.1"
+     }
+    },
+    {
+     "step": 3,
+     "values": {
+      "p": "0.25",
+      "calc": "2.25",
+      "i": "3",
+      "ret": "0.4"
+     },
+     "note": "切り上げなので 3"
+    },
+    {
+     "step": 3,
+     "values": {
+      "p": "0.5",
+      "calc": "4.5",
+      "i": "5",
+      "ret": "0.6"
+     }
+    },
+    {
+     "step": 3,
+     "values": {
+      "p": "0.75",
+      "calc": "6.75",
+      "i": "7",
+      "ret": "0.8"
+     }
+    },
+    {
+     "step": 3,
+     "values": {
+      "p": "1",
+      "calc": "9",
+      "i": "9",
+      "ret": "1"
+     }
+    },
+    {
+     "step": 12,
+     "values": {
+      "ret": "{0.1, 0.4, 0.6, 0.8, 1}"
+     },
+     "note": "これが戻り値"
+    }
+   ]
+  }
+ },
+ "P-SAMPLE-16": {
+  "caption": "〔プログラム〕",
+  "lines": [
+   {
+    "n": 1,
+    "indent": 0,
+    "kind": "proc",
+    "text": "○整数型の配列: encode(整数型: codePoint)"
+   },
+   {
+    "n": 2,
+    "indent": 1,
+    "kind": "comment",
+    "text": "/* utf8Bytesの初期値は，ビットパターンの“x”を全て0に置き換え，8桁ごとに区切って，それぞれを2進数とみなしたときの値 */"
+   },
+   {
+    "n": 3,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型の配列: utf8Bytes ← {224, 128, 128}"
+   },
+   {
+    "n": 4,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: cp ← codePoint"
+   },
+   {
+    "n": 5,
+    "indent": 1,
+    "kind": "decl",
+    "text": "整数型: i"
+   },
+   {
+    "n": 6,
+    "indent": 1,
+    "kind": "for",
+    "text": "for (i を utf8Bytesの要素数 から 1 まで 1 ずつ減らす)"
+   },
+   {
+    "n": 7,
+    "indent": 2,
+    "kind": "assign",
+    "text": "utf8Bytes[i] ← utf8Bytes[i] ＋ (cp ÷ [[]] の余り)"
+   },
+   {
+    "n": 8,
+    "indent": 2,
+    "kind": "assign",
+    "text": "cp ← cp ÷ [[]] の商"
+   },
+   {
+    "n": 9,
+    "indent": 1,
+    "kind": "endfor",
+    "text": "endfor"
+   },
+   {
+    "n": 10,
+    "indent": 1,
+    "kind": "return",
+    "text": "return utf8Bytes"
+   }
+  ],
+  "trace": {
+   "columns": [
+    {
+     "key": "i",
+     "label": "i",
+     "type": "int"
+    },
+    {
+     "key": "cp",
+     "label": "cp",
+     "type": "int"
+    },
+    {
+     "key": "amari",
+     "label": "cp ÷ 64 の余り",
+     "type": "int"
+    },
+    {
+     "key": "bytes",
+     "label": "utf8Bytes",
+     "type": "object"
+    }
+   ],
+   "initial": {
+    "step": 4,
+    "values": {
+     "cp": "12354",
+     "bytes": "{224, 128, 128}"
+    }
+   },
+   "expected": [
+    {
+     "step": 4,
+     "values": {
+      "cp": "12354",
+      "bytes": "{224, 128, 128}"
+     },
+     "note": "“あ” の符号位置 3042(16) ＝ 12354"
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "3",
+      "cp": "12354",
+      "amari": "2",
+      "bytes": "{224, 128, 130}"
+     },
+     "note": "下位6ビットを末尾のバイトへ"
+    },
+    {
+     "step": 8,
+     "values": {
+      "i": "3",
+      "cp": "192"
+     },
+     "note": "12354 ÷ 64 の商"
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "2",
+      "cp": "192",
+      "amari": "0",
+      "bytes": "{224, 128, 130}"
+     },
+     "note": "余りが 0 なので変わらない"
+    },
+    {
+     "step": 8,
+     "values": {
+      "i": "2",
+      "cp": "3"
+     }
+    },
+    {
+     "step": 7,
+     "values": {
+      "i": "1",
+      "cp": "3",
+      "amari": "3",
+      "bytes": "{227, 128, 130}"
+     },
+     "note": "先頭のバイトへ"
+    },
+    {
+     "step": 10,
+     "values": {
+      "bytes": "{227, 128, 130}"
+     },
+     "note": "11100011 10000000 10000010"
+    }
+   ]
+  }
+ }
+}
