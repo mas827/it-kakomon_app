@@ -1,5 +1,5 @@
 // Service Worker - オフライン対応
-const CACHE = 'fe-exam-v34';
+const CACHE = 'fe-exam-v35';
 const ASSETS = [
   './', './index.html', './app.js', './manifest.json', './icon-192.png', './icon-512.png',
   './katex/katex.min.css',
@@ -27,6 +27,7 @@ const ASSETS = [
 
 // IMAGES:START（tools/sync_sw_images.py が生成。手で編集しない）
 const IMAGES = [
+  './images/2009A-12.png',
   './images/2009A-25.png',
   './images/2009A-42.png',
   './images/2009A-51.png',
@@ -35,6 +36,7 @@ const IMAGES = [
   './images/2009A-80.png',
   './images/2010A-15.png',
   './images/2010A-24.png',
+  './images/2010A-37.png',
   './images/2010A-51.png',
   './images/2010A-52.png',
   './images/2010A-75.png',

@@ -186,7 +186,7 @@ export default function App() {
 
 function TabBar({ tab, onChange }) {
   const items = [
-    { key: "quiz", icon: "📝", label: "過去問" },
+    { key: "quiz", icon: "📝", label: "科目A" },
     { key: "abbr", icon: "📇", label: "英略語" },
     { key: "mock", icon: "🏁", label: "模試" },
     { key: "kamokub", icon: "📘", label: "科目B" },
@@ -341,9 +341,9 @@ function HomeScreen({ states, dueCount, newCount, totalCount, calcFilter, onCalc
     <div style={{ padding: "32px 20px 24px", display: "flex", flexDirection: "column", gap: 20, flex: 1 }}>
       <header style={{ marginBottom: 4 }}>
         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>
-          基本情報技術者
+          科目A 過去問
         </h1>
-        <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 14 }}>午前問題 間隔反復トレーニング・全{totalCount}問</p>
+        <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 14 }}>四肢択一の過去問を間隔反復で・全{totalCount}問</p>
       </header>
 
       <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 14, padding: 18 }}>
@@ -1288,7 +1288,7 @@ function BackupRestore() {
     <div>
       <div style={{ fontSize: 12, color: C.faint, marginBottom: 10, fontFamily: mono }}>学習履歴のバックアップ</div>
       <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.7, marginBottom: 12 }}>
-        過去問・英略語・科目Bの履歴をまとめて1つのファイルに保存します。アプリを消したり端末を変えても、このファイルから復元できます。
+        科目A・英略語・模試・科目Bの履歴をまとめて1つのファイルに保存します。アプリを消したり端末を変えても、このファイルから復元できます。
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button onClick={doExport}
@@ -1461,8 +1461,8 @@ function AbbrHome({ states, dueCount, newCount, onReview, onSetup, onList, onSta
   return (
     <div style={{ padding: "24px 20px", display: "flex", flexDirection: "column", gap: 20, flex: 1 }}>
       <header>
-        <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: -0.5, color: C.text }}>英略語100</h1>
-        <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 14 }}>頻出英略語 暗記カード・全{ABBRS.length}語</p>
+        <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: -0.5, color: C.text }}>英略語</h1>
+        <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 14 }}>頻出英略語の暗記カード・全{ABBRS.length}語</p>
       </header>
 
       <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 14, padding: 18 }}>
@@ -2288,7 +2288,7 @@ function MockApp({ onBusyChange, cardStates, setCards }) {
     const id = run.ids[i];
     if (!canRate || !(id in snapshot.cards) || run.ratings[i] === String(r)) return;
     if (lastTs(cardStates[id]) !== snapshot.written[id]) {
-      window.alert("この問題は模試のあとに過去問モードで解いているため、理解度は変更できません");
+      window.alert("この問題は模試のあとに科目Aタブで解いているため、理解度は変更できません");
       return;
     }
     const card = reviewCard(snapshot.cards[id] || initCard(), r, run.corrects[i] === "1");
@@ -2373,10 +2373,10 @@ function MockHome({ progress, runs, notice, saveFailed, onStart, onResume, onDis
   return (
     <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 22, flex: 1, overflowY: "auto" }}>
       <div style={{ paddingTop: 12 }}>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800 }}>模試</h1>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800 }}>科目A 模試</h1>
         <p style={{ margin: "6px 0 0", fontSize: 13, color: C.dim, lineHeight: 1.7 }}>
           過去問から本番の分野配分どおりに{MOCK_TOTAL}問を抽選し、通しで解きます。<br />
-          採点は最後にまとめて。結果は過去問モードの復習に登録されます（理解度は結果画面で選び直せます）。
+          採点は最後にまとめて。結果は科目Aの復習に登録されます（理解度は結果画面で選び直せます）。
         </p>
       </div>
 
@@ -2783,8 +2783,8 @@ function MockScore({ run, isFresh, histFailed, onRate, onOpen, onBack }) {
         {run.ratings && (
           <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.6, marginBottom: 10 }}>
             {onRate
-              ? "この結果は過去問モードの復習に登録しました（正解→わかった／不正解→わからない）。理解度はここで選び直せます。"
-              : "この模試の結果は、下の理解度で過去問モードの復習に登録済みです。"}
+              ? "この結果は科目Aの復習に登録しました（正解→わかった／不正解→わからない）。理解度はここで選び直せます。"
+              : "この模試の結果は、下の理解度で科目Aの復習に登録済みです。"}
           </div>
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

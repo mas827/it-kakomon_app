@@ -385,7 +385,18 @@ function CellInput({ type, draft, onDraft, onCarry, onDone, onClear, inputRef })
 }
 
 // ===== 解答欄（選択肢は4〜9個で可変。組合せ問題は表で見せる） =====
+// 組合せ問題の各列の最大幅（半角=1・全角=2）の合計。スマホ幅で1行に収まらない問題は
+// 列を横に並べると狭い列の中で単語の途中から折り返すので、a / b を縦に積む
+const COMBO_ROW_MAX = 40;
+const textWidth = (s) => [...String(s)].reduce((w, ch) => w + (ch.charCodeAt(0) < 0x100 ? 1 : 2), 0);
+function comboStacked(q) {
+  if (!q.choiceCols) return false;
+  const total = q.choiceCols.reduce((sum, _, k) => sum + Math.max(...q.choices.map((c) => textWidth(c[k]))), 0);
+  return total + 2 * q.choiceCols.length > COMBO_ROW_MAX;
+}
+
 function ChoiceList({ q, selected, answered, onSelect }) {
+  const stacked = comboStacked(q);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {q.choices.map((c, i) => {
@@ -405,7 +416,16 @@ function ChoiceList({ q, selected, answered, onSelect }) {
             <span style={{ flex: "0 0 auto", fontFamily: mono, fontWeight: 700, color: label, fontSize: 14, lineHeight: "20px" }}>
               {CHOICE_LABELS[i]}
             </span>
-            {Array.isArray(c) ? (
+            {Array.isArray(c) && stacked ? (
+              <span style={{ flex: 1, display: "grid", gridTemplateColumns: "auto 1fr", gap: "4px 10px", alignItems: "baseline" }}>
+                {q.choiceCols.map((col, k) => (
+                  <React.Fragment key={col}>
+                    <span style={{ fontSize: 10, color: C.faint, fontFamily: mono, whiteSpace: "nowrap" }}>{col}</span>
+                    <span style={{ fontSize: 13, fontFamily: mono, lineHeight: 1.5, overflowWrap: "anywhere" }}>{c[k]}</span>
+                  </React.Fragment>
+                ))}
+              </span>
+            ) : Array.isArray(c) ? (
               <span style={{ flex: 1, display: "grid", gridTemplateColumns: `repeat(${q.choiceCols.length}, auto)`, gap: "2px 12px" }}>
                 {q.choiceCols.map((col, k) => (
                   <React.Fragment key={col}>
@@ -1080,9 +1100,9 @@ function BHome({ states, prefs, setPrefs, dueCount, newCount, onReview, onSetup,
     <div style={{ padding: "32px 20px 24px", display: "flex", flexDirection: "column", gap: 20, flex: 1 }}>
       <header style={{ marginBottom: 4 }}>
         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>
-          基本情報技術者 科目B
+          科目B
         </h1>
-        <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 14 }}>擬似言語のトレース・全{total}問</p>
+        <p style={{ margin: "4px 0 0", color: C.dim, fontSize: 14 }}>擬似言語のトレースと情報セキュリティ・全{total}問</p>
       </header>
 
       <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 14, padding: 18 }}>
