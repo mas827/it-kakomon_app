@@ -8,7 +8,7 @@ pdftotext -bbox-layout の「語＋座標」を使う。座標があると次の
   - 空欄の位置   … 語と語の間の大きな隙間。ラベル(a,b,c)は本文と別の y に置かれている
   - 組合せの列   … 解答群の見出し a / b / c の x 位置と、各行の語間の隙間で列に割れる
 
-出力は subject-b/drafts/{SET}-{NN}.json（作業用の下書き）。
+出力は kamokub_work/drafts/{SET}-{NN}.json（作業用の下書き）。
 topics / figures / trace / explanation / traceExplanation は空なので、人が埋める。
 下書きの "_review" に「原本を見て確かめるべき箇所」が並ぶので、そこだけ確認する。
 
@@ -19,9 +19,8 @@ import argparse, json, os, re, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-BROOT = os.path.join(ROOT, "subject-b")   # 作業用の drafts/ の置き場所（Phase 4 で見直す）
 PDFDIR = os.path.join(ROOT, "pdf", "SubjectB")
-OUTDIR = os.path.join(BROOT, "drafts")
+OUTDIR = os.path.join(ROOT, "kamokub_work", "drafts")
 KEYS = os.path.join(ROOT, "data", "kamokub_answer_keys.json")
 
 # セット名 → (問題冊子PDF, アプリ上の set 表記, 出典の言い方)

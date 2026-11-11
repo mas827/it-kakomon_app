@@ -13,7 +13,7 @@ import argparse, os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PDFDIR = os.path.join(ROOT, "pdf", "SubjectB")
-OUTDIR = os.path.join(ROOT, "subject-b", "extracted")
+OUTDIR = os.path.join(ROOT, "kamokub_work", "extracted")
 
 # セット名 → (問題冊子PDF, 解答例PDF, アプリ上の set 表記)
 SETS = {

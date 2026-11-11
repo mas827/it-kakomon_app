@@ -17,6 +17,7 @@
 //        固定するので、同じコードなら何度採っても1バイトも変わらない
 //   node tools/render_check.mjs --snapshot-diff <a.json> <b.json>
 //        2つのスナップショットを比べ、差のあった項目を一覧する。差があれば exit 1
+//   node tools/render_check.mjs --kamokub B-R05-01 B-R06-03  科目Bを詳細画面で描画
 //   node tools/render_check.mjs --b-session <科目Bのid> [ok|ng]  科目Bの出題画面を解答済み・解説を展開して描く
 //        （--snapshot-b で差が出たときに、どこが違うかを生のHTMLで見るため）
 //   node tools/render_check.mjs --snapshot-b <out.json>  科目B（44問）の全件スナップショット
@@ -69,8 +70,10 @@ async function loadApp(entry = ENTRY, exportsList = null) {
     "BackupRestore", "buildBackup",
   ];
   if (exportsList) EXPORTS.splice(0, EXPORTS.length, ...exportsList);
+  // entry は ファイルのパス か { contents }（仮の入口。ルートからの相対 import で書く）
   const result = await build({
-    entryPoints: [entry],
+    ...(typeof entry === "string" ? { entryPoints: [entry] }
+      : { stdin: { contents: entry.contents, resolveDir: ROOT, loader: "jsx", sourcefile: "render_check-entry.jsx" } }),
     bundle: true,
     platform: "node",
     format: "cjs",
@@ -574,14 +577,16 @@ function snapshotDiff(aPath, bPath) {
   if (total) process.exit(1);
 }
 
-// ===== --snapshot-b: 科目B（subject-b）の全件スナップショット =====
-// 入口は subject-b/app.jsx（Phase 2 以降は kamokub.jsx を取り込む薄い入口）。名前はバンドルの中から拾う。
-const KAMOKUB_ENTRY = path.join(ROOT, "subject-b", "app.jsx");
+// ===== --snapshot-b: 科目B（kamokub.jsx）の全件スナップショット =====
+// 入口は kamokub.jsx。名前はバンドルの中から拾う（ui-common.jsx から import した C・GlobalStyle なども拾える）。
+// 本体と同じく kamokub.jsx を描く。外枠に使う GlobalStyle は kamokub.jsx からは使われずバンドルから落ちるので、
+// 仮の入口で一緒に export して残す
+const KAMOKUB_ENTRY = { contents: 'export { default } from "./kamokub.jsx";\nexport { GlobalStyle } from "./ui-common.jsx";\n' };
 const KAMOKUB_EXPORTS = [
-  "App", "BSession", "BDetail", "BList", "BStats", "BSetup", "BResult", "BHome", "Modal", "TraceTable",
-  // 科目Bの RichText は表を横スクロールで描く。載せ替え後は ui-common の RichText を包んだ BRichText。
-  // 載せ替え前のファイルには BRichText が無く、ファイル内の RichText がそれに当たる
-  "?BRichText", "RichText", "REF_TEXT", "plainPreview", "buildFilled", "expandColumns", "expectedRows",
+  "KamokuBApp", "C", "sans", "GlobalStyle",
+  "BSession", "BDetail", "BList", "BStats", "BSetup", "BResult", "BHome", "Modal", "TraceTable",
+  // 科目Bの RichText は表を横スクロールで描く（ui-common の RichText を scrollTables で包んだもの）
+  "BRichText", "REF_TEXT", "plainPreview", "buildFilled", "expandColumns", "expectedRows",
   "initTrace", "traceReducer", "countCorrections", "fmtMs", "statusOf",
 ];
 
@@ -663,8 +668,12 @@ async function snapshotB(app, outPath) {
     // 主要画面（学習状態の見本つき）
     const st = srsFixture(QS, (q) => q.id);
     const storage = { "fe-exam-b-srs-v1": JSON.stringify(st) };
-    html("SB:App", h(app.App), storage);
-    html("SB:App-empty", h(app.App));
+    // 科目B全体。統合前の単体入口（subject-b/app.jsx）と同じ外枠で包むので、Phase 3 までの記録とそのまま比べられる
+    const Frame = () => h("div", { style: { minHeight: "100vh", background: app.C.bg, color: app.C.text, fontFamily: app.sans, display: "flex", justifyContent: "center" } },
+      h("div", { style: { width: "100%", maxWidth: 480, minHeight: "100vh", display: "flex", flexDirection: "column", position: "relative" } }, h(app.KamokuBApp)),
+      h(app.GlobalStyle));
+    html("SB:App", h(Frame), storage);
+    html("SB:App-empty", h(Frame));
     html("SB:BHome", h(app.BHome, { states: st, prefs, setPrefs: noop, dueCount: 3, newCount: 20, onReview: noop, onSetup: noop, onList: noop, onStats: noop, onRef: noop }));
     html("SB:BSetup", h(app.BSetup, { states: st, onStart: noop, onBack: noop }));
     html("SB:BList", h(app.BList, { states: st, onOpen: noop, onBack: noop }));
@@ -672,7 +681,7 @@ async function snapshotB(app, outPath) {
     html("SB:BStats-empty", h(app.BStats, { states: {}, onBack: noop, onReset: noop }));
     const log = QS.slice(0, 8).map((q, i) => ({ q, selected: i % 2 ? (q.answer + 1) % q.choices.length : q.answer, correct: i % 2 === 0, quality: i % 3, ms: 61000 * (i + 1) }));
     html("SB:BResult", h(app.BResult, { log, onHome: noop, onOpen: noop }));
-    html("SB:Ref", h(app.Modal, { title: "擬似言語の記述形式", onClose: noop }, h(app.BRichText || app.RichText, { text: app.REF_TEXT, style: { fontSize: 13 } })));
+    html("SB:Ref", h(app.Modal, { title: "擬似言語の記述形式", onClose: noop }, h(app.BRichText, { text: app.REF_TEXT, style: { fontSize: 13 } })));
     val("fn:fmtMs", () => [0, 999, 59000, 60000, 599000, 3599000].map(app.fmtMs));
     val("fn:statusOf", () => QS.map((q) => app.statusOf(st, q)));
   } finally {
@@ -713,6 +722,18 @@ async function main() {
       console.log(withForcedHooks(React, new Map(vals.map((v, i) => [i, v])), () => render(React.createElement(appB.BSession,
         { questions: [q], prefs: { timer: true, split: 0.58 }, setPrefs() {}, onFinish() {}, onQuit() {}, updateCard() {} }))));
     } finally { det.restore(); }
+    return;
+  }
+  if (args[0] === "--kamokub") {
+    // 科目Bの詳細画面（問題一覧から開く画面）を描く。科目Aの <id> と同じ使い方
+    const appB = await loadApp(KAMOKUB_ENTRY, KAMOKUB_EXPORTS);
+    const QS = require(path.join(ROOT, "data", "kamokub.json"));
+    for (const id of args.slice(1)) {
+      const q = QS.find((x) => x.id === id);
+      if (!q) { console.error(`# ${id}: 見つかりません`); continue; }
+      console.log(`\n===== ${id} =====`);
+      console.log(render(React.createElement(appB.BDetail, { q, onBack() {} })));
+    }
     return;
   }
   if (args[0] === "--snapshot-b") {
